@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Mahasiswa</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎓 Data Mahasiswa (FastAPI)</h1>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span id="userInfo"></span>
+                <button onclick="logout()" class="btn-delete">Logout</button>
+            </div>
+        </header>
+
+        <section class="card" id="adminSection" style="display:none;">
+            <h3>Tambah Mahasiswa (Auto-NIM)</h3>
+            <div class="form-group">
+                <input type="text" id="nama" placeholder="Nama Lengkap">
+                <input type="text" id="jurusan" placeholder="Jurusan">
+                <input type="number" id="ipk" placeholder="IPK" step="0.01">
+                <button onclick="addData()" class="btn-primary">Simpan</button>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="list-header">
+                <input type="text" id="searchInput" placeholder="Cari NIM / Nama..." onkeyup="loadData()">
+                <select id="sortSelect" onchange="loadData()">
+                    <option value="">Urutan Default</option>
+                    <option value="ipk_desc">IPK Tertinggi (Bubble Sort)</option>
+                    <option value="ipk_asc">IPK Terendah (Bubble Sort)</option>
+                </select>
+            </div>
+            <table>
+                <thead>
+                    <tr><th>NIM</th><th>Nama</th><th>Jurusan</th><th>IPK</th><th>Aksi</th></tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </section>
+    </div>
+    <script src="/static/script.js"></script>
+    <script>checkAuth(); loadData();</script>
+</body>
+</html>
