@@ -1,0 +1,93 @@
+:root {
+    --primary: #4f46e5;
+    --bg: #f3f4f6;
+    --card-bg: #ffffff;
+    --text: #1f2937;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+header h1 { color: var(--primary); margin-bottom: 5px; }
+
+/* Card Styling */
+.card {
+    background: var(--card-bg);
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+/* Form Styling */
+.form-group { margin-bottom: 15px; }
+
+input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-sizing: border-box; /* Agar padding tidak merusak width */
+    font-size: 14px;
+    transition: 0.3s;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: 0.2s;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: white;
+    width: 100%;
+}
+
+.btn-primary:hover { background-color: #4338ca; }
+
+.btn-refresh { background-color: #10b981; color: white; padding: 5px 15px; font-size: 12px; }
+
+.btn-delete {
+    background-color: #ef4444;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+/* Table Styling */
+.table-responsive { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+th { background-color: #f9fafb; font-weight: 600; color: #6b7280; }
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+    body { padding: 10px; }
+    .card { padding: 15px; }
+    th, td { font-size: 12px; padding: 8px; }
+}
