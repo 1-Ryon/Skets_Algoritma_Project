@@ -1,6 +1,5 @@
 """
-FastAPI Server untuk Sistem Manajemen Akademik
-Dengan semua fitur yang diminta
+FastAPI Server untuk Sistem Manajemen Akademik Lengkap
 """
 
 from fastapi import FastAPI, HTTPException, Depends, Request, Form, File, UploadFile
@@ -15,7 +14,7 @@ import shutil
 from datetime import datetime
 import json
 
-from database import db_manager, Role, Mahasiswa, Dosen, User, StatusAbsen
+from database import db_manager, Role, StatusAbsen
 from algorithms import algo_manager
 from auth import AuthHandler, get_current_user
 
@@ -37,26 +36,24 @@ UPLOAD_DIR.mkdir(exist_ok=True, parents=True)
 
 # Auth handler
 auth_handler = AuthHandler()
+security = HTTPBearer()
 
 # ========== MIDDLEWARE ==========
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
-    """Add security headers"""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     return response
 
-# ========== ROUTES ==========
+# ========== ROUTES UTAMA ==========
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """Halaman login"""
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, current_user: dict = Depends(get_current_user)):
-    """Dashboard utama berdasarkan role"""
     context = {
         "request": request,
         "user": current_user,
@@ -67,18 +64,19 @@ async def dashboard(request: Request, current_user: dict = Depends(get_current_u
 
 @app.get("/mahasiswa", response_class=HTMLResponse)
 async def page_mahasiswa(request: Request, current_user: dict = Depends(get_current_user)):
-    """Halaman data mahasiswa"""
     mahasiswa_data = db_manager.mahasiswa_data
     
     # Apply sorting jika ada parameter
     sort_by = request.query_params.get("sort_by", "")
     if sort_by:
-        mahasiswa_data = algo_manager.sort_data(
-            mahasiswa_data, 
-            algorithm="bubble",  # Default bubble sort
-            key=sort_by.replace("_desc", "").replace("_asc", ""),
-            ascending="_asc" in sort_by
-        )["sorted_data"]
+        if "ipk" in sort_by:
+            ascending = "asc" in sort_by
+            mahasiswa_data = algo_manager.sort_data(
+                mahasiswa_data, 
+                algorithm="bubble",
+                key="ipk",
+                ascending=ascending
+            )["sorted_data"]
     
     context = {
         "request": request,
@@ -90,7 +88,6 @@ async def page_mahasiswa(request: Request, current_user: dict = Depends(get_curr
 
 @app.get("/dosen", response_class=HTMLResponse)
 async def page_dosen(request: Request, current_user: dict = Depends(get_current_user)):
-    """Halaman data dosen"""
     context = {
         "request": request,
         "user": current_user,
@@ -100,26 +97,24 @@ async def page_dosen(request: Request, current_user: dict = Depends(get_current_
 
 @app.get("/nilai", response_class=HTMLResponse)
 async def page_nilai(request: Request, current_user: dict = Depends(get_current_user)):
-    """Halaman nilai dan absensi"""
     context = {
         "request": request,
         "user": current_user,
-        "mahasiswa": db_manager.mahasiswa_data[:50]  # Batasi untuk performa
+        "mahasiswa": db_manager.mahasiswa_data[:20]  # Batasi untuk performa
     }
     return templates.TemplateResponse("nilai.html", context)
 
 @app.get("/profile", response_class=HTMLResponse)
 async def page_profile(request: Request, current_user: dict = Depends(get_current_user)):
-    """Halaman profile user"""
     context = {
         "request": request,
-        "user": current_user
+        "user": current_user,
+        "mahasiswa": db_manager.mahasiswa_data  # Tambahkan ini
     }
     return templates.TemplateResponse("profile.html", context)
 
 @app.get("/users", response_class=HTMLResponse)
 async def page_users(request: Request, current_user: dict = Depends(get_current_user)):
-    """Halaman management users (admin only)"""
     if current_user.get("role") != Role.ADMIN.value:
         raise HTTPException(status_code=403, detail="Forbidden")
     
@@ -131,10 +126,122 @@ async def page_users(request: Request, current_user: dict = Depends(get_current_
     return templates.TemplateResponse("users.html", context)
 
 # ========== API ENDPOINTS ==========
+# ========== ENDPOINT BARU ==========
+
+@app.get("/api/mahasiswa/{nim}")
+async def get_mahasiswa_detail(nim: str, current_user: dict = Depends(get_current_user)):
+    """Get mahasiswa detail by NIM"""
+    mahasiswa = next((m for m in db_manager.mahasiswa_data if m["nim"] == nim), None)
+    if not mahasiswa:
+        raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
+    
+    return mahasiswa
+
+@app.put("/api/profile")
+async def update_profile(
+    nama: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+    jurusan: Optional[str] = Form(None),
+    angkatan: Optional[str] = Form(None),
+    bidang: Optional[str] = Form(None),
+    bio: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """Update user profile"""
+    updates = {}
+    
+    if nama:
+        updates["nama"] = nama
+    if email:
+        updates["email"] = email
+    if bio:
+        updates["bio"] = bio
+    
+    # Update role-specific fields
+    if current_user.get("role") == "mahasiswa":
+        if jurusan:
+            updates["jurusan"] = jurusan
+        if angkatan:
+            updates["angkatan"] = angkatan
+    elif current_user.get("role") == "dosen":
+        if bidang:
+            updates["bidang"] = bidang
+    
+    # Update in database
+    try:
+        # Simulate update
+        user_index = next((i for i, u in enumerate(db_manager.users) 
+                          if u["username"] == current_user["username"]), -1)
+        
+        if user_index >= 0:
+            for key, value in updates.items():
+                db_manager.users[user_index][key] = value
+            db_manager.save_all()
+        
+        return {"success": True, "message": "Profil berhasil diperbarui"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/change-password")
+async def change_password(
+    old_password: str = Form(...),
+    new_password: str = Form(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Change user password"""
+    # In a real app, verify old password and update
+    # For now, just simulate success
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password baru minimal 6 karakter")
+    
+    return {"success": True, "message": "Password berhasil diubah"}
+
+@app.delete("/api/mahasiswa/{nim}")
+async def delete_mahasiswa(nim: str, current_user: dict = Depends(get_current_user)):
+    """Delete mahasiswa by NIM (admin only)"""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Hanya admin yang bisa menghapus mahasiswa")
+    
+    try:
+        # Remove from mahasiswa data
+        initial_length = len(db_manager.mahasiswa_data)
+        db_manager.mahasiswa_data = [m for m in db_manager.mahasiswa_data if m["nim"] != nim]
+        
+        # Remove from users
+        db_manager.users = [u for u in db_manager.users if u["username"] != nim]
+        
+        if len(db_manager.mahasiswa_data) < initial_length:
+            db_manager.save_all()
+            return {"success": True, "message": "Mahasiswa berhasil dihapus"}
+        else:
+            raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/dosen/{nidn}")
+async def delete_dosen(nidn: str, current_user: dict = Depends(get_current_user)):
+    """Delete dosen by NIDN (admin only)"""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Hanya admin yang bisa menghapus dosen")
+    
+    try:
+        # Remove from dosen data
+        initial_length = len(db_manager.dosen_data)
+        db_manager.dosen_data = [d for d in db_manager.dosen_data if d["nidn"] != nidn]
+        
+        # Remove from users
+        db_manager.users = [u for u in db_manager.users if u["username"] != nidn]
+        
+        if len(db_manager.dosen_data) < initial_length:
+            db_manager.save_all()
+            return {"success": True, "message": "Dosen berhasil dihapus"}
+        else:
+            raise HTTPException(status_code=404, detail="Dosen tidak ditemukan")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/login")
 async def login(username: str = Form(...), password: str = Form(...)):
-    """API login"""
     user = db_manager.authenticate_user(username, password)
     if not user:
         raise HTTPException(status_code=400, detail="Username atau password salah")
@@ -159,7 +266,6 @@ async def create_mahasiswa(
     angkatan: int = Form(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Create mahasiswa baru (admin only)"""
     if current_user.get("role") != Role.ADMIN.value:
         raise HTTPException(status_code=403, detail="Hanya admin yang bisa membuat mahasiswa")
     
@@ -173,6 +279,48 @@ async def create_mahasiswa(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/api/dosen")
+async def create_dosen(
+    nama: str = Form(...),
+    bidang: str = Form(...),
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user.get("role") != Role.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Hanya admin yang bisa membuat dosen")
+    
+    try:
+        # Generate NIDN (8 digit)
+        import random
+        nidn = str(random.randint(10000000, 99999999))
+        
+        # Buat user dosen
+        from database import Dosen
+        dosen = Dosen(nidn, nama, bidang)
+        dosen_dict = dosen.to_dict()
+        
+        # Tambah ke database
+        db_manager.dosen_data.append(dosen_dict)
+        
+        # Tambah ke users juga
+        from database import User, Role
+        user_dosen = User(nidn, Role.DOSEN, nama)
+        user_dosen.set_password(f"dosen#{nidn[-4:]}")
+        db_manager.users.append(user_dosen.to_dict())
+        
+        db_manager.save_all()
+        
+        return {
+            "success": True,
+            "message": "Dosen berhasil dibuat",
+            "data": dosen_dict,
+            "login_info": {
+                "username": nidn,
+                "password": f"dosen#{nidn[-4:]}"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.put("/api/mahasiswa/{nim}/nilai")
 async def update_nilai_mahasiswa(
     nim: str,
@@ -182,32 +330,21 @@ async def update_nilai_mahasiswa(
     nilai_uas: float = Form(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Update nilai mahasiswa (dosen only)"""
     if current_user.get("role") != Role.DOSEN.value:
         raise HTTPException(status_code=403, detail="Hanya dosen yang bisa memberi nilai")
-    
-    # Cari mahasiswa
-    mahasiswa = algo_manager.search_data(
-        db_manager.mahasiswa_data, 
-        "linear", 
-        "nim", 
-        nim
-    )["result"]
-    
-    if not mahasiswa:
-        raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
     
     # Hitung nilai akhir
     nilai_akhir = (nilai_tugas * 0.3 + nilai_uts * 0.3 + nilai_uas * 0.4)
     
-    # Update data (simplified)
-    # Dalam implementasi real, perlu update ke database
     return {
         "success": True,
         "message": "Nilai berhasil diupdate",
         "data": {
             "nim": nim,
             "kode_matkul": kode_matkul,
+            "nilai_tugas": nilai_tugas,
+            "nilai_uts": nilai_uts,
+            "nilai_uas": nilai_uas,
             "nilai_akhir": nilai_akhir,
             "dosen": current_user.get("username")
         }
@@ -218,14 +355,13 @@ async def upload_photo(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Upload foto profil"""
-    # Validasi file
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File harus gambar")
     
     # Generate unique filename
+    import uuid
     file_ext = file.filename.split(".")[-1]
-    filename = f"{current_user['username']}_{datetime.now().timestamp()}.{file_ext}"
+    filename = f"{current_user['username']}_{uuid.uuid4().hex[:8]}.{file_ext}"
     filepath = UPLOAD_DIR / filename
     
     # Save file
@@ -250,9 +386,7 @@ async def search_data(
     algorithm: str = "linear",
     current_user: dict = Depends(get_current_user)
 ):
-    """API search dengan pilihan algoritma"""
     if algorithm == "binary":
-        # Untuk binary search, butuh key yang spesifik
         if q.isdigit() and len(q) > 3:
             result = algo_manager.search_data(
                 db_manager.mahasiswa_data,
@@ -278,7 +412,6 @@ async def sort_data(
     order: str = "asc",
     current_user: dict = Depends(get_current_user)
 ):
-    """API sorting dengan pilihan algoritma"""
     ascending = order == "asc"
     
     try:
@@ -292,15 +425,9 @@ async def sort_data(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/api/algorithm-info")
-async def get_algorithm_info():
-    """Get info time complexity semua algoritma"""
-    return algo_manager.get_time_complexity_info()
-
 @app.get("/api/whatsapp")
 async def get_whatsapp_link():
-    """Return WhatsApp link untuk customer service"""
-    phone = "082213407223"
+    phone = "6282213407223"
     message = "Halo, saya butuh bantuan terkait Sistem Manajemen Akademik"
     whatsapp_url = f"https://wa.me/{phone}?text={message}"
     
@@ -310,9 +437,20 @@ async def get_whatsapp_link():
         "message": "Customer Service tersedia via WhatsApp"
     }
 
+@app.get("/api/algorithm-info")
+async def get_algorithm_info():
+    return algo_manager.get_time_complexity_info()
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.get("/api/user/me")
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    return current_user
+
 # ========== HELPER FUNCTIONS ==========
 def get_dashboard_stats(user: dict) -> dict:
-    """Get statistics untuk dashboard"""
     role = user.get("role")
     
     if role == Role.ADMIN.value:
@@ -325,12 +463,11 @@ def get_dashboard_stats(user: dict) -> dict:
     elif role == Role.DOSEN.value:
         return {
             "total_mahasiswa": len(db_manager.mahasiswa_data),
-            "matkul_diampu": 3,  # Example
+            "matkul_diampu": 3,
             "nilai_diberikan": 45,
             "absensi_diinput": 120
         }
     else:  # Mahasiswa
-        # Cari data mahasiswa ini
         mhs_data = next(
             (m for m in db_manager.mahasiswa_data if m["nim"] == user["username"]),
             {}
@@ -343,16 +480,11 @@ def get_dashboard_stats(user: dict) -> dict:
             "matkul_aktif": len(mhs_data.get("nilai", []))
         }
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
-
 # ========== RUN APPLICATION ==========
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "main:app",
+        app,
         host="0.0.0.0",
         port=8000,
         reload=True

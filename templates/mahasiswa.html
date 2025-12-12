@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Mahasiswa - Sistem Akademik</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/dark-mode.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <i class="fas fa-university"></i>
+            <h2>Akademik<span>Pro</span></h2>
+        </div>
+        
+        <div class="user-profile">
+            <img src="{{ user.foto_profil or url_for('static', path='images/default-avatar.png') }}" 
+                 alt="Profile" class="avatar" id="userAvatar">
+            <div class="user-info">
+                <h4 id="usernameDisplay">{{ user.nama }}</h4>
+                <p class="role-badge {{ user.role }}" id="userRole">{{ user.role|upper }}</p>
+            </div>
+        </div>
+        
+        <nav class="nav-menu">
+            <a href="/dashboard" class="nav-item">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            
+            {% if user.role == 'admin' %}
+            <a href="/users" class="nav-item">
+                <i class="fas fa-users-cog"></i> Management User
+            </a>
+            <a href="/dosen" class="nav-item">
+                <i class="fas fa-chalkboard-teacher"></i> Data Dosen
+            </a>
+            {% endif %}
+            
+            <a href="/mahasiswa" class="nav-item active">
+                <i class="fas fa-user-graduate"></i> Data Mahasiswa
+            </a>
+            
+            {% if user.role == 'dosen' %}
+            <a href="/nilai" class="nav-item">
+                <i class="fas fa-clipboard-list"></i> Nilai & Absensi
+            </a>
+            {% endif %}
+            
+            {% if user.role == 'mahasiswa' %}
+            <a href="/nilai" class="nav-item">
+                <i class="fas fa-chart-line"></i> IPK & Nilai
+            </a>
+            {% endif %}
+            
+            <a href="/profile" class="nav-item">
+                <i class="fas fa-user-edit"></i> Edit Profile
+            </a>
+            
+            <div class="nav-divider"></div>
+            
+            <a href="#" class="nav-item" onclick="toggleDarkMode()">
+                <i class="fas fa-moon"></i> Mode Gelap
+            </a>
+            <a href="#" class="nav-item" id="whatsappBtn">
+                <i class="fab fa-whatsapp"></i> Customer Service
+            </a>
+        </nav>
+        
+        <button class="logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="toggle-btn" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </div>
+            
+            <h2>📊 Data Mahasiswa</h2>
+            
+            <div class="top-bar-actions">
+                <button class="btn-icon" onclick="toggleDarkMode()">
+                    <i class="fas fa-adjust"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon mahasiswa">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ mahasiswa|length }}</h3>
+                        <p>Total Mahasiswa</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon ipk">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>
+                            {% if mahasiswa|length > 0 %}
+                                {% set total_ipk = 0 %}
+                                {% for mhs in mahasiswa %}
+                                    {% set total_ipk = total_ipk + mhs.ipk %}
+                                {% endfor %}
+                                {{ "%.2f"|format(total_ipk / mahasiswa|length) }}
+                            {% else %}
+                                0.00
+                            {% endif %}
+                        </h3>
+                        <p>Rata-rata IPK</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon present">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>
+                            {% if mahasiswa|length > 0 %}
+                                {% set total_presensi = 0 %}
+                                {% for mhs in mahasiswa %}
+                                    {% set total_presensi = total_presensi + (mhs.presensi_rate or 0) %}
+                                {% endfor %}
+                                {{ "%.1f"|format(total_presensi / mahasiswa|length) }}%
+                            {% else %}
+                                0.0%
+                            {% endif %}
+                        </h3>
+                        <p>Rata-rata Presensi</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon system">
+                        <i class="fas fa-code"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ algorithms.sorting|length if algorithms and algorithms.sorting else 0 }}</h3>
+                        <p>Algoritma Sorting</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Bar -->
+            <div class="card action-bar">
+                <div class="action-group">
+                    {% if user.role == 'admin' %}
+                    <button class="btn-primary" onclick="showAddMahasiswaModal()">
+                        <i class="fas fa-plus"></i> Tambah Mahasiswa
+                    </button>
+                    {% endif %}
+                    
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Cari nama, NIM, atau jurusan...">
+                    </div>
+                    
+                    <select id="sortSelect" class="form-control" style="width: auto;" onchange="sortTable()">
+                        <option value="">Urutkan...</option>
+                        <option value="nama_asc">Nama (A-Z)</option>
+                        <option value="nama_desc">Nama (Z-A)</option>
+                        <option value="ipk_desc">IPK Tertinggi</option>
+                        <option value="ipk_asc">IPK Terendah</option>
+                        <option value="nim_asc">NIM Terkecil</option>
+                        <option value="nim_desc">NIM Terbesar</option>
+                    </select>
+                    
+                    <select id="algorithmSelect" class="form-control" style="width: auto;" onchange="applyAlgorithm()">
+                        <option value="">Pilih Algoritma...</option>
+                        <option value="bubble_asc">Bubble Sort (Asc)</option>
+                        <option value="bubble_desc">Bubble Sort (Desc)</option>
+                        <option value="merge_asc">Merge Sort (Asc)</option>
+                        <option value="merge_desc">Merge Sort (Desc)</option>
+                        <option value="linear">Linear Search</option>
+                        <option value="binary">Binary Search</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Data Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-table"></i> Daftar Mahasiswa</h3>
+                    <span class="badge">{{ mahasiswa|length }} data</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="data-table" id="mahasiswaTable">
+                            <thead>
+                                <tr>
+                                    <th>NIM</th>
+                                    <th>Nama</th>
+                                    <th>Jurusan</th>
+                                    <th>Angkatan</th>
+                                    <th>IPK</th>
+                                    <th>Presensi</th>
+                                    <th>SKS</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                {% for mhs in mahasiswa %}
+                                <tr data-nim="{{ mhs.nim }}" data-ipk="{{ mhs.ipk }}" data-nama="{{ mhs.nama|lower }}">
+                                    <td><strong>{{ mhs.nim }}</strong></td>
+                                    <td>{{ mhs.nama }}</td>
+                                    <td>{{ mhs.jurusan }}</td>
+                                    <td>{{ mhs.angkatan }}</td>
+                                    <td>
+                                        <span class="badge {% if mhs.ipk >= 3.5 %}success{% elif mhs.ipk >= 3.0 %}warning{% else %}danger{% endif %}">
+                                            {{ "%.2f"|format(mhs.ipk) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: {{ mhs.presensi_rate|default(0) }}%"></div>
+                                            <span>{{ "%.1f"|format(mhs.presensi_rate|default(0)) }}%</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ mhs.total_sks|default(0) }}</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon btn-info" onclick="viewDetail('{{ mhs.nim }}')" title="Detail">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            {% if user.role == 'admin' %}
+                                            <button class="btn-icon btn-warning" onclick="editMahasiswa('{{ mhs.nim }}')" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn-icon btn-danger" onclick="deleteMahasiswa('{{ mhs.nim }}', '{{ mhs.nama }}')" title="Hapus">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if mahasiswa|length == 0 %}
+                    <div class="empty-state">
+                        <i class="fas fa-user-graduate fa-3x"></i>
+                        <h3>Tidak ada data mahasiswa</h3>
+                        <p>Tambahkan mahasiswa baru untuk memulai</p>
+                        {% if user.role == 'admin' %}
+                        <button class="btn-primary" onclick="showAddMahasiswaModal()">
+                            <i class="fas fa-plus"></i> Tambah Mahasiswa Pertama
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Algorithm Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-code"></i> Informasi Algoritma</h3>
+                </div>
+                <div class="card-body">
+                    <div class="algorithms-info">
+                        <div class="algo-item">
+                            <h4>Searching Algorithms</h4>
+                            <ul>
+                                <li><strong>Linear Search:</strong> O(n) - Mencari satu per satu</li>
+                                <li><strong>Binary Search:</strong> O(log n) - Data harus terurut</li>
+                            </ul>
+                        </div>
+                        <div class="algo-item">
+                            <h4>Sorting Algorithms</h4>
+                            <ul>
+                                <li><strong>Bubble Sort:</strong> O(n²) - Sederhana</li>
+                                <li><strong>Merge Sort:</strong> O(n log n) - Cepat untuk data besar</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Add Mahasiswa -->
+    <div id="addMahasiswaModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Tambah Mahasiswa Baru</h3>
+                <span class="close" onclick="closeModal('addMahasiswaModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addMahasiswaForm">
+                    <div class="form-group">
+                        <label>Nama Lengkap *</label>
+                        <input type="text" id="nama" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Jurusan *</label>
+                        <select id="jurusan" class="form-control" required>
+                            <option value="">Pilih Jurusan</option>
+                            <option value="Teknik Informatika">Teknik Informatika</option>
+                            <option value="Sistem Informasi">Sistem Informasi</option>
+                            <option value="Ilmu Komputer">Ilmu Komputer</option>
+                            <option value="Teknik Elektro">Teknik Elektro</option>
+                            <option value="Manajemen">Manajemen</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Angkatan *</label>
+                        <select id="angkatan" class="form-control" required>
+                            <option value="">Pilih Angkatan</option>
+                            {% for year in range(2020, 2025) %}
+                            <option value="{{ year }}">{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email" class="form-control">
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="closeModal('addMahasiswaModal')">Batal</button>
+                        <button type="submit" class="btn-primary">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Detail -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Detail Mahasiswa</h3>
+                <span class="close" onclick="closeModal('detailModal')">&times;</span>
+            </div>
+            <div class="modal-body" id="detailContent">
+                Loading...
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', path='js/script.js') }}"></script>
+    <script>
+        let currentData = {{ mahasiswa|tojson }};
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserData();
+            initSearch();
+            initWhatsApp();
+        });
+        
+        function showAddMahasiswaModal() {
+            document.getElementById('addMahasiswaModal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        function initSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('keyup', function() {
+                const query = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#tableBody tr');
+                
+                rows.forEach(row => {
+                    const nama = row.getAttribute('data-nama');
+                    const nim = row.getAttribute('data-nim');
+                    const text = row.textContent.toLowerCase();
+                    
+                    if (text.includes(query) || nama.includes(query) || nim.includes(query)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        }
+        
+        function sortTable() {
+            const sortBy = document.getElementById('sortSelect').value;
+            let sortedData = [...currentData];
+            
+            switch(sortBy) {
+                case 'nama_asc':
+                    sortedData.sort((a, b) => a.nama.localeCompare(b.nama));
+                    break;
+                case 'nama_desc':
+                    sortedData.sort((a, b) => b.nama.localeCompare(a.nama));
+                    break;
+                case 'ipk_desc':
+                    sortedData.sort((a, b) => b.ipk - a.ipk);
+                    break;
+                case 'ipk_asc':
+                    sortedData.sort((a, b) => a.ipk - b.ipk);
+                    break;
+                case 'nim_asc':
+                    sortedData.sort((a, b) => a.nim.localeCompare(b.nim));
+                    break;
+                case 'nim_desc':
+                    sortedData.sort((a, b) => b.nim.localeCompare(a.nim));
+                    break;
+            }
+            
+            renderTable(sortedData);
+        }
+        
+        async function applyAlgorithm() {
+            const algo = document.getElementById('algorithmSelect').value;
+            const searchInput = document.getElementById('searchInput').value;
+            
+            if (algo.includes('search')) {
+                if (!searchInput) {
+                    alert('Masukkan kata kunci pencarian!');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/search?q=${encodeURIComponent(searchInput)}&algorithm=${algo.split('_')[0]}`);
+                    const result = await response.json();
+                    
+                    if (result.error) {
+                        alert(result.error);
+                    } else {
+                        renderTable(result.results || [result.result].filter(Boolean));
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            } else if (algo.includes('sort')) {
+                const [algoName, order] = algo.split('_');
+                
+                try {
+                    const response = await fetch(`/api/sort?algorithm=${algoName}&key=ipk&order=${order}`);
+                    const result = await response.json();
+                    
+                    renderTable(result.sorted_data);
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }
+        }
+        
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="empty-state-sm">
+                                <i class="fas fa-search"></i>
+                                <p>Tidak ada data yang ditemukan</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            data.forEach(mhs => {
+                const row = document.createElement('tr');
+                row.setAttribute('data-nim', mhs.nim);
+                row.setAttribute('data-ipk', mhs.ipk);
+                row.setAttribute('data-nama', mhs.nama.toLowerCase());
+                
+                row.innerHTML = `
+                    <td><strong>${mhs.nim}</strong></td>
+                    <td>${mhs.nama}</td>
+                    <td>${mhs.jurusan}</td>
+                    <td>${mhs.angkatan}</td>
+                    <td>
+                        <span class="badge ${mhs.ipk >= 3.5 ? 'success' : mhs.ipk >= 3.0 ? 'warning' : 'danger'}">
+                            ${mhs.ipk.toFixed(2)}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${mhs.presensi_rate || 0}%"></div>
+                            <span>${(mhs.presensi_rate || 0).toFixed(1)}%</span>
+                        </div>
+                    </td>
+                    <td>${mhs.total_sks || 0}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-icon btn-info" onclick="viewDetail('${mhs.nim}')" title="Detail">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            {% if user.role == 'admin' %}
+                            <button class="btn-icon btn-warning" onclick="editMahasiswa('${mhs.nim}')" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon btn-danger" onclick="deleteMahasiswa('${mhs.nim}', '${mhs.nama}')" title="Hapus">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        async function viewDetail(nim) {
+            try {
+                const response = await fetch(`/api/mahasiswa/${nim}`);
+                if (!response.ok) throw new Error('Data tidak ditemukan');
+                
+                const data = await response.json();
+                
+                document.getElementById('detailContent').innerHTML = `
+                    <div class="detail-view">
+                        <div class="detail-header">
+                            <h4>${data.nama}</h4>
+                            <span class="badge mahasiswa">${data.nim}</span>
+                        </div>
+                        
+                        <div class="detail-info">
+                            <div class="info-row">
+                                <span class="info-label">Jurusan:</span>
+                                <span class="info-value">${data.jurusan}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Angkatan:</span>
+                                <span class="info-value">${data.angkatan}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">IPK:</span>
+                                <span class="info-value">${data.ipk.toFixed(2)}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Total SKS:</span>
+                                <span class="info-value">${data.total_sks}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Presensi:</span>
+                                <span class="info-value">${(data.presensi_rate || 0).toFixed(1)}%</span>
+                            </div>
+                        </div>
+                        
+                        ${data.nilai && data.nilai.length > 0 ? `
+                        <h5>Nilai Terakhir:</h5>
+                        <div class="detail-list">
+                            ${data.nilai.slice(0, 3).map(n => `
+                                <div class="list-item">
+                                    <span>${n.nama_matkul}</span>
+                                    <span class="badge ${n.nilai_akhir >= 85 ? 'success' : n.nilai_akhir >= 70 ? 'warning' : 'danger'}">
+                                        ${n.nilai_akhir}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                document.getElementById('detailModal').style.display = 'block';
+            } catch (error) {
+                document.getElementById('detailContent').innerHTML = `
+                    <div class="error-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                document.getElementById('detailModal').style.display = 'block';
+            }
+        }
+        
+        async function deleteMahasiswa(nim, nama) {
+            if (!confirm(`Hapus mahasiswa ${nama} (${nim})?`)) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/mahasiswa/${nim}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    alert('Mahasiswa berhasil dihapus');
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Gagal menghapus');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        document.getElementById('addMahasiswaForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('nama', document.getElementById('nama').value);
+            formData.append('jurusan', document.getElementById('jurusan').value);
+            formData.append('angkatan', document.getElementById('angkatan').value);
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/mahasiswa', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`✅ Mahasiswa berhasil dibuat!\nNIM: ${result.data.mahasiswa.nim}\nPassword: ${result.data.login_info.initial_password}`);
+                    closeModal('addMahasiswaModal');
+                    location.reload();
+                } else {
+                    alert('❌ ' + (result.detail || 'Gagal membuat mahasiswa'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        };
+        
+        // Close modal jika klik di luar
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            });
+        };
+    </script>
+</body>
+</html>

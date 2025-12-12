@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Dosen - Sistem Akademik</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/dark-mode.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <i class="fas fa-university"></i>
+            <h2>Akademik<span>Pro</span></h2>
+        </div>
+        
+        <div class="user-profile">
+            <img src="{{ user.foto_profil or url_for('static', path='images/default-avatar.png') }}" 
+                 alt="Profile" class="avatar" id="userAvatar">
+            <div class="user-info">
+                <h4 id="usernameDisplay">{{ user.nama }}</h4>
+                <p class="role-badge {{ user.role }}" id="userRole">{{ user.role|upper }}</p>
+            </div>
+        </div>
+        
+        <nav class="nav-menu">
+            <a href="/dashboard" class="nav-item">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            
+            {% if user.role == 'admin' %}
+            <a href="/users" class="nav-item">
+                <i class="fas fa-users-cog"></i> Management User
+            </a>
+            <a href="/dosen" class="nav-item active">
+                <i class="fas fa-chalkboard-teacher"></i> Data Dosen
+            </a>
+            {% endif %}
+            
+            <a href="/mahasiswa" class="nav-item">
+                <i class="fas fa-user-graduate"></i> Data Mahasiswa
+            </a>
+            
+            {% if user.role == 'dosen' %}
+            <a href="/nilai" class="nav-item">
+                <i class="fas fa-clipboard-list"></i> Nilai & Absensi
+            </a>
+            {% endif %}
+            
+            <a href="/profile" class="nav-item">
+                <i class="fas fa-user-edit"></i> Edit Profile
+            </a>
+            
+            <div class="nav-divider"></div>
+            
+            <a href="#" class="nav-item" onclick="toggleDarkMode()">
+                <i class="fas fa-moon"></i> Mode Gelap
+            </a>
+            <a href="#" class="nav-item" id="whatsappBtn">
+                <i class="fab fa-whatsapp"></i> Customer Service
+            </a>
+        </nav>
+        
+        <button class="logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="toggle-btn" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </div>
+            
+            <h2>👨‍🏫 Data Dosen</h2>
+            
+            <div class="top-bar-actions">
+                <button class="btn-icon" onclick="toggleDarkMode()">
+                    <i class="fas fa-adjust"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon dosen">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ dosen|length }}</h3>
+                        <p>Total Dosen</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon matkul">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ dosen|map(attribute='mata_kuliah')|map('length')|sum }}</h3>
+                        <p>Total Mata Kuliah</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Bar -->
+            <div class="card action-bar">
+                <div class="action-group">
+                    {% if user.role == 'admin' %}
+                    <button class="btn-primary" onclick="showAddDosenModal()">
+                        <i class="fas fa-plus"></i> Tambah Dosen
+                    </button>
+                    {% endif %}
+                    
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Cari nama atau NIDN...">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-table"></i> Daftar Dosen</h3>
+                    <span class="badge">{{ dosen|length }} data</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="data-table" id="dosenTable">
+                            <thead>
+                                <tr>
+                                    <th>NIDN</th>
+                                    <th>Nama</th>
+                                    <th>Bidang Keahlian</th>
+                                    <th>Mata Kuliah</th>
+                                    <th>Email</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                {% for ds in dosen %}
+                                <tr>
+                                    <td><strong>{{ ds.nidn }}</strong></td>
+                                    <td>{{ ds.nama }}</td>
+                                    <td>{{ ds.bidang }}</td>
+                                    <td>
+                                        {% if ds.mata_kuliah and ds.mata_kuliah|length > 0 %}
+                                        <div class="chips">
+                                            {% for mk in ds.mata_kuliah[:2] %}
+                                            <span class="chip">{{ mk.nama }}</span>
+                                            {% endfor %}
+                                            {% if ds.mata_kuliah|length > 2 %}
+                                            <span class="chip">+{{ ds.mata_kuliah|length - 2 }} lainnya</span>
+                                            {% endif %}
+                                        </div>
+                                        {% else %}
+                                        <span class="text-muted">Belum ada mata kuliah</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ ds.email or '-' }}</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon btn-info" onclick="viewDosenDetail('{{ ds.nidn }}')" title="Detail">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            {% if user.role == 'admin' %}
+                                            <button class="btn-icon btn-warning" onclick="editDosen('{{ ds.nidn }}')" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn-icon btn-danger" onclick="deleteDosen('{{ ds.nidn }}', '{{ ds.nama }}')" title="Hapus">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if dosen|length == 0 %}
+                    <div class="empty-state">
+                        <i class="fas fa-chalkboard-teacher fa-3x"></i>
+                        <h3>Tidak ada data dosen</h3>
+                        <p>Tambahkan dosen baru untuk memulai</p>
+                        {% if user.role == 'admin' %}
+                        <button class="btn-primary" onclick="showAddDosenModal()">
+                            <i class="fas fa-plus"></i> Tambah Dosen Pertama
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Add Dosen -->
+    <div id="addDosenModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Tambah Dosen Baru</h3>
+                <span class="close" onclick="closeModal('addDosenModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addDosenForm">
+                    <div class="form-group">
+                        <label>Nama Lengkap *</label>
+                        <input type="text" id="dosenNama" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Bidang Keahlian *</label>
+                        <input type="text" id="dosenBidang" class="form-control" required placeholder="Contoh: Data Science, Machine Learning">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="dosenEmail" class="form-control">
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="closeModal('addDosenModal')">Batal</button>
+                        <button type="submit" class="btn-primary">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', path='js/script.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserData();
+            initWhatsApp();
+            
+            // Search functionality
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('keyup', function() {
+                const query = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#tableBody tr');
+                
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(query)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        function showAddDosenModal() {
+            document.getElementById('addDosenModal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        async function viewDosenDetail(nidn) {
+            alert(`Detail dosen ${nidn} akan ditampilkan di sini.`);
+            // Implementasi detail dosen
+        }
+        
+        async function deleteDosen(nidn, nama) {
+            if (!confirm(`Hapus dosen ${nama} (${nidn})?`)) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/dosen/${nidn}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    alert('Dosen berhasil dihapus');
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Gagal menghapus');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        document.getElementById('addDosenForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('nama', document.getElementById('dosenNama').value);
+            formData.append('bidang', document.getElementById('dosenBidang').value);
+            formData.append('email', document.getElementById('dosenEmail').value);
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/dosen', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`✅ Dosen berhasil dibuat!\nNIDN: ${result.data.nidn}\nPassword: ${result.data.login_info.password}`);
+                    closeModal('addDosenModal');
+                    location.reload();
+                } else {
+                    alert('❌ ' + (result.detail || 'Gagal membuat dosen'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        };
+        
+        // Close modal jika klik di luar
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            });
+        };
+    </script>
+</body>
+</html>

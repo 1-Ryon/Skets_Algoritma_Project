@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profil - Sistem Akademik</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/dark-mode.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <i class="fas fa-university"></i>
+            <h2>Akademik<span>Pro</span></h2>
+        </div>
+        
+        <div class="user-profile">
+            <img src="{{ user.foto_profil or url_for('static', path='images/default-avatar.png') }}" 
+                 alt="Profile" class="avatar" id="userAvatar">
+            <div class="user-info">
+                <h4 id="usernameDisplay">{{ user.nama }}</h4>
+                <p class="role-badge {{ user.role }}" id="userRole">{{ user.role|upper }}</p>
+            </div>
+        </div>
+        
+        <nav class="nav-menu">
+            <a href="/dashboard" class="nav-item">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            
+            {% if user.role == 'admin' %}
+            <a href="/users" class="nav-item">
+                <i class="fas fa-users-cog"></i> Management User
+            </a>
+            <a href="/dosen" class="nav-item">
+                <i class="fas fa-chalkboard-teacher"></i> Data Dosen
+            </a>
+            {% endif %}
+            
+            <a href="/mahasiswa" class="nav-item">
+                <i class="fas fa-user-graduate"></i> Data Mahasiswa
+            </a>
+            
+            {% if user.role == 'dosen' %}
+            <a href="/nilai" class="nav-item">
+                <i class="fas fa-clipboard-list"></i> Nilai & Absensi
+            </a>
+            {% endif %}
+            
+            {% if user.role == 'mahasiswa' %}
+            <a href="/nilai" class="nav-item">
+                <i class="fas fa-chart-line"></i> IPK & Nilai
+            </a>
+            {% endif %}
+            
+            <a href="/profile" class="nav-item active">
+                <i class="fas fa-user-edit"></i> Edit Profile
+            </a>
+            
+            <div class="nav-divider"></div>
+            
+            <a href="#" class="nav-item" onclick="toggleDarkMode()">
+                <i class="fas fa-moon"></i> Mode Gelap
+            </a>
+            <a href="#" class="nav-item" id="whatsappBtn">
+                <i class="fab fa-whatsapp"></i> Customer Service
+            </a>
+        </nav>
+        
+        <button class="logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="toggle-btn" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </div>
+            
+            <h2>👤 Profil Saya</h2>
+            
+            <div class="top-bar-actions">
+                <button class="btn-icon" onclick="toggleDarkMode()">
+                    <i class="fas fa-adjust"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="content-area">
+            <div class="profile-container">
+                <!-- Profile Card -->
+                <div class="card profile-card">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <img src="{{ user.foto_profil or url_for('static', path='images/default-avatar.png') }}" 
+                                 alt="Profile" class="avatar-large" id="profileAvatar">
+                            <div class="avatar-actions">
+                                <button class="btn-icon btn-primary" onclick="document.getElementById('fileInput').click()">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                                <input type="file" id="fileInput" accept="image/*" style="display: none;" 
+                                       onchange="uploadPhoto(this.files[0])">
+                            </div>
+                        </div>
+                        
+                        <div class="profile-info">
+                            <h2>{{ user.nama }}</h2>
+                            <p class="profile-role role-badge {{ user.role }}">{{ user.role|upper }}</p>
+                            
+                            <div class="profile-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-user-tag"></i>
+                                    <span>{{ user.username }}</span>
+                                </div>
+                                {% if user.email %}
+                                <div class="meta-item">
+                                    <i class="fas fa-envelope"></i>
+                                    <span>{{ user.email }}</span>
+                                </div>
+                                {% endif %}
+                                <div class="meta-item">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>Bergabung: {{ user.created_at[:10] if user.created_at else '-' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-stats">
+                        {% if user.role == 'mahasiswa' %}
+                            {% set mhs_data = none %}
+                            {% for mhs in mahasiswa %}
+                                {% if mhs.nim == user.username %}
+                                    {% set mhs_data = mhs %}
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <div class="stat-item">
+                                <span class="stat-label">IPK</span>
+                                <span class="stat-value">
+                                    {% if mhs_data and mhs_data.ipk %}
+                                        {{ "%.2f"|format(mhs_data.ipk) }}
+                                    {% else %}
+                                        0.00
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">SKS</span>
+                                <span class="stat-value">
+                                    {% if mhs_data and mhs_data.total_sks %}
+                                        {{ mhs_data.total_sks }}
+                                    {% else %}
+                                        0
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Presensi</span>
+                                <span class="stat-value">
+                                    {% if mhs_data and mhs_data.presensi_rate %}
+                                        {{ "%.1f"|format(mhs_data.presensi_rate) }}%
+                                    {% else %}
+                                        0.0%
+                                    {% endif %}
+                                </span>
+                            </div>
+                        {% elif user.role == 'dosen' %}
+                            <div class="stat-item">
+                                <span class="stat-label">NIDN</span>
+                                <span class="stat-value">{{ user.nidn or user.username }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Bidang</span>
+                                <span class="stat-value">{{ user.bidang or '-' }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Edit Form -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-edit"></i> Edit Profil</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="editProfileForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nama Lengkap *</label>
+                                    <input type="text" id="editNama" class="form-control" 
+                                           value="{{ user.nama }}" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" id="editEmail" class="form-control" 
+                                           value="{{ user.email or '' }}">
+                                </div>
+                            </div>
+                            
+                            {% if user.role == 'mahasiswa' %}
+                                {% set mhs_data = none %}
+                                {% for mhs in mahasiswa %}
+                                    {% if mhs.nim == user.username %}
+                                        {% set mhs_data = mhs %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>NIM</label>
+                                        <input type="text" class="form-control" value="{{ user.username }}" disabled>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Jurusan</label>
+                                        <input type="text" id="editJurusan" class="form-control" 
+                                               value="{% if mhs_data and mhs_data.jurusan %}{{ mhs_data.jurusan }}{% else %}{{ user.jurusan or '' }}{% endif %}">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Angkatan</label>
+                                        <input type="number" id="editAngkatan" class="form-control" 
+                                               value="{% if mhs_data and mhs_data.angkatan %}{{ mhs_data.angkatan }}{% else %}{{ user.angkatan or '' }}{% endif %}">
+                                    </div>
+                                </div>
+                            {% elif user.role == 'dosen' %}
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>NIDN</label>
+                                        <input type="text" class="form-control" value="{{ user.nidn or user.username }}" disabled>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Bidang Keahlian</label>
+                                        <input type="text" id="editBidang" class="form-control" 
+                                               value="{{ user.bidang or '' }}">
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="form-group">
+                                <label>Bio / Deskripsi</label>
+                                <textarea id="editBio" class="form-control" rows="3" 
+                                          placeholder="Tulis sedikit tentang diri Anda...">{{ user.bio or '' }}</textarea>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="btn-primary">
+                                    <i class="fas fa-save"></i> Simpan Perubahan
+                                </button>
+                                <button type="button" class="btn-secondary" onclick="showChangePasswordModal()">
+                                    <i class="fas fa-key"></i> Ganti Password
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Additional Info -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-info-circle"></i> Informasi Akun</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Username</span>
+                                <span class="info-value">{{ user.username }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Role</span>
+                                <span class="info-value">{{ user.role|upper }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Status</span>
+                                <span class="info-value">
+                                    <span class="badge success">Aktif</span>
+                                </span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Terakhir Login</span>
+                                <span class="info-value">{{ user.last_login or '-' }}</span>
+                            </div>
+                            {% if user.role == 'mahasiswa' %}
+                                {% set mhs_data = none %}
+                                {% for mhs in mahasiswa %}
+                                    {% if mhs.nim == user.username %}
+                                        {% set mhs_data = mhs %}
+                                    {% endif %}
+                                {% endfor %}
+                                <div class="info-item">
+                                    <span class="info-label">Mata Kuliah</span>
+                                    <span class="info-value">
+                                        {% if mhs_data and mhs_data.nilai %}
+                                            {{ mhs_data.nilai|length }}
+                                        {% else %}
+                                            0
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            {% elif user.role == 'dosen' %}
+                                <div class="info-item">
+                                    <span class="info-label">Mata Kuliah Diajarkan</span>
+                                    <span class="info-value">{{ user.mata_kuliah|length if user.mata_kuliah else 0 }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Change Password -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Ganti Password</h3>
+                <span class="close" onclick="closeModal('changePasswordModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label>Password Lama</label>
+                        <input type="password" id="oldPassword" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Password Baru</label>
+                        <input type="password" id="newPassword" class="form-control" required minlength="6">
+                        <small class="form-text">Minimal 6 karakter</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Konfirmasi Password Baru</label>
+                        <input type="password" id="confirmPassword" class="form-control" required>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="closeModal('changePasswordModal')">Batal</button>
+                        <button type="submit" class="btn-primary">Ganti Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', path='js/script.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserData();
+            initWhatsApp();
+        });
+        
+        function showChangePasswordModal() {
+            document.getElementById('changePasswordModal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        async function uploadPhoto(file) {
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                alert('File harus berupa gambar');
+                return;
+            }
+            
+            if (file.size > 5 * 1024 * 1024) { // 5MB
+                alert('Ukuran file maksimal 5MB');
+                return;
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/upload-photo', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Foto profil berhasil diupload!');
+                    document.getElementById('userAvatar').src = result.file_url;
+                    document.getElementById('profileAvatar').src = result.file_url;
+                } else {
+                    alert('❌ ' + (result.detail || 'Gagal upload foto'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        document.getElementById('editProfileForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('nama', document.getElementById('editNama').value);
+            formData.append('email', document.getElementById('editEmail').value);
+            
+            {% if user.role == 'mahasiswa' %}
+            formData.append('jurusan', document.getElementById('editJurusan').value);
+            formData.append('angkatan', document.getElementById('editAngkatan').value);
+            {% elif user.role == 'dosen' %}
+            formData.append('bidang', document.getElementById('editBidang').value);
+            {% endif %}
+            
+            formData.append('bio', document.getElementById('editBio').value);
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Profil berhasil diperbarui!');
+                    location.reload();
+                } else {
+                    alert('❌ ' + (result.detail || 'Gagal memperbarui profil'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        };
+        
+        document.getElementById('changePasswordForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (newPassword !== confirmPassword) {
+                alert('Password baru tidak cocok!');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                alert('Password baru minimal 6 karakter!');
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const formData = new FormData();
+                formData.append('old_password', oldPassword);
+                formData.append('new_password', newPassword);
+                
+                const response = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Password berhasil diubah!');
+                    closeModal('changePasswordModal');
+                    this.reset();
+                } else {
+                    alert('❌ ' + (result.detail || 'Gagal mengubah password'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        };
+        
+        // Close modal jika klik di luar
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            });
+        };
+    </script>
+</body>
+</html>

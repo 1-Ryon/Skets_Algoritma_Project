@@ -1,4 +1,4 @@
-// Main JavaScript untuk Sistem Akademik
+// Main JavaScript untuk Sistem Akademik Lengkap
 
 // ========== GLOBAL VARIABLES ==========
 const API_BASE = window.location.origin;
@@ -6,19 +6,10 @@ let currentUser = null;
 
 // ========== INITIALIZATION ==========
 document.addEventListener('DOMContentLoaded', function() {
-    // Check authentication
     checkAuth();
-    
-    // Initialize components
-    initTheme();
-    initWhatsAppLink();
-    initSearch();
-    initModals();
-    
-    // Load user data
     loadUserData();
-    
-    // Update time every minute
+    initTheme();
+    initWhatsApp();
     updateCurrentTime();
     setInterval(updateCurrentTime, 60000);
 });
@@ -26,76 +17,21 @@ document.addEventListener('DOMContentLoaded', function() {
 // ========== AUTH FUNCTIONS ==========
 function checkAuth() {
     const token = localStorage.getItem('token');
-    if (!token && !window.location.pathname.includes('/login')) {
+    const currentPath = window.location.pathname;
+    
+    if (!token && !currentPath.includes('/login') && currentPath !== '/') {
         window.location.href = '/';
+        return false;
     }
-}
-
-async function login(username, password) {
-    try {
-        const formData = new FormData();
-        formData.append('username', username);
-        formData.append('password', password);
-        
-        const response = await fetch('/api/login', {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!response.ok) {
-            throw new Error('Login failed');
-        }
-        
-        const data = await response.json();
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
+    
+    if (token && (currentPath === '/' || currentPath.includes('/login'))) {
         window.location.href = '/dashboard';
-    } catch (error) {
-        showAlert('error', 'Login gagal: ' + error.message);
+        return false;
     }
-}
-
-function logout() {
-    localStorage.clear();
-    window.location.href = '/';
-}
-
-// ========== THEME MANAGEMENT ==========
-function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
     
-    // Theme toggle button
-    const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', toggleTheme);
-        themeToggle.innerHTML = savedTheme === 'dark' 
-            ? '<i class="fas fa-sun"></i>' 
-            : '<i class="fas fa-moon"></i>';
-    }
+    return true;
 }
 
-function toggleTheme() {
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    
-    // Update toggle button icon
-    const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        themeToggle.innerHTML = newTheme === 'dark' 
-            ? '<i class="fas fa-sun"></i>' 
-            : '<i class="fas fa-moon"></i>';
-    }
-}
-
-function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-}
-
-// ========== USER FUNCTIONS ==========
 async function loadUserData() {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -110,6 +46,8 @@ async function loadUserData() {
         if (response.ok) {
             currentUser = await response.json();
             updateUIWithUserData();
+        } else if (response.status === 401) {
+            logout();
         }
     } catch (error) {
         console.error('Failed to load user data:', error);
@@ -120,81 +58,266 @@ function updateUIWithUserData() {
     if (!currentUser) return;
     
     // Update avatar
-    const avatar = document.getElementById('userAvatar');
-    if (avatar && currentUser.foto_profil) {
-        avatar.src = currentUser.foto_profil;
-    }
+    const avatars = document.querySelectorAll('#userAvatar, .avatar');
+    avatars.forEach(avatar => {
+        if (currentUser.foto_profil) {
+            avatar.src = currentUser.foto_profil;
+        }
+    });
     
-    // Update username
-    const usernameElement = document.getElementById('usernameDisplay');
-    if (usernameElement) {
-        usernameElement.textContent = currentUser.nama;
-    }
+    // Update username display
+    const usernameElements = document.querySelectorAll('#usernameDisplay');
+    usernameElements.forEach(el => {
+        if (el) el.textContent = currentUser.nama;
+    });
     
     // Update role badge
-    const roleBadge = document.getElementById('userRole');
-    if (roleBadge) {
-        roleBadge.textContent = currentUser.role.toUpperCase();
-        roleBadge.className = `role-badge ${currentUser.role}`;
-    }
-}
-
-// ========== SEARCH FUNCTIONALITY ==========
-function initSearch() {
-    const searchInput = document.getElementById('globalSearch');
-    if (searchInput) {
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                performSearch(this.value);
-            }
-        });
-        
-        // Debounce untuk performa
-        let timeout;
-        searchInput.addEventListener('input', function() {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => {
-                if (this.value.length > 2) {
-                    performSearch(this.value);
-                }
-            }, 500);
-        });
-    }
-}
-
-async function performSearch(query) {
-    try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-        const results = await response.json();
-        displaySearchResults(results);
-    } catch (error) {
-        console.error('Search failed:', error);
-    }
-}
-
-function displaySearchResults(results) {
-    // Implementasi display search results
-    // Bisa berupa modal atau update table
-    console.log('Search results:', results);
-}
-
-// ========== MODAL FUNCTIONS ==========
-function initModals() {
-    // Close modal when clicking outside
-    document.addEventListener('click', function(event) {
-        if (event.target.classList.contains('modal')) {
-            closeAllModals();
+    const roleBadges = document.querySelectorAll('#userRole');
+    roleBadges.forEach(badge => {
+        if (badge) {
+            badge.textContent = currentUser.role.toUpperCase();
+            badge.className = `role-badge ${currentUser.role}`;
         }
     });
+}
+
+function logout() {
+    if (confirm('Apakah Anda yakin ingin logout?')) {
+        localStorage.clear();
+        window.location.href = '/';
+    }
+}
+
+// ========== THEME MANAGEMENT ==========
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+}
+
+function toggleDarkMode() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+}
+
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
     
-    // Close modal with Escape key
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            closeAllModals();
+    // Update toggle button if exists
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        themeToggle.innerHTML = theme === 'dark' 
+            ? '<i class="fas fa-sun"></i>' 
+            : '<i class="fas fa-moon"></i>';
+    }
+}
+
+// ========== WHATSAPP INTEGRATION ==========
+function initWhatsApp() {
+    const whatsappBtns = document.querySelectorAll('#whatsappBtn, .whatsapp-link');
+    whatsappBtns.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const phone = '6282213407223';
+            const message = 'Halo, saya butuh bantuan terkait Sistem Manajemen Akademik';
+            const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+        });
+    });
+}
+
+// ========== SIDEBAR FUNCTIONS ==========
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('collapsed');
+    }
+}
+
+// ========== UTILITY FUNCTIONS ==========
+function updateCurrentTime() {
+    const now = new Date();
+    const timeElements = document.querySelectorAll('#currentTime');
+    
+    timeElements.forEach(el => {
+        if (el) {
+            el.textContent = now.toLocaleDateString('id-ID', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         }
     });
 }
 
+function showAlert(type, message, duration = 5000) {
+    // Create alert container if not exists
+    let container = document.getElementById('alertContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'alertContainer';
+        container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+        `;
+        document.body.appendChild(container);
+    }
+    
+    // Create alert element
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.style.cssText = `
+        background-color: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        border-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    alert.innerHTML = `
+        <span>${message}</span>
+        <button class="alert-close" onclick="this.parentElement.remove()" style="
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin-left: 1rem;
+        ">&times;</button>
+    `;
+    
+    container.appendChild(alert);
+    
+    // Auto remove after duration
+    setTimeout(() => {
+        if (alert.parentElement) {
+            alert.remove();
+        }
+    }, duration);
+    
+    // Add CSS animation
+    if (!document.querySelector('#alertAnimations')) {
+        const style = document.createElement('style');
+        style.id = 'alertAnimations';
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// ========== FORM VALIDATION ==========
+function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function validateNIM(nim) {
+    const re = /^\d{10}$/;
+    return re.test(nim);
+}
+
+function validateNIDN(nidn) {
+    const re = /^\d{8}$/;
+    return re.test(nidn);
+}
+
+function validatePhone(phone) {
+    const re = /^08[1-9][0-9]{7,10}$/;
+    return re.test(phone);
+}
+
+// ========== DATA EXPORT ==========
+function exportToCSV(data, filename = 'data') {
+    if (!data || data.length === 0) {
+        showAlert('warning', 'Tidak ada data untuk diexport');
+        return;
+    }
+    
+    try {
+        const headers = Object.keys(data[0]);
+        const csvRows = [
+            headers.join(','),
+            ...data.map(row => 
+                headers.map(header => 
+                    JSON.stringify(row[header] || '')
+                ).join(',')
+            )
+        ];
+        
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filename}_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        showAlert('success', 'Data berhasil diexport');
+    } catch (error) {
+        showAlert('error', 'Gagal export data: ' + error.message);
+    }
+}
+
+// ========== PAGINATION ==========
+function createPagination(totalItems, itemsPerPage, currentPage, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    let html = '<div class="pagination">';
+    
+    // Previous button
+    html += `<button class="page-link ${currentPage === 1 ? 'disabled' : ''}" 
+              onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                &laquo; Prev
+            </button>`;
+    
+    // Page numbers
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+            html += `<button class="page-link ${i === currentPage ? 'active' : ''}" 
+                      onclick="changePage(${i})">${i}</button>`;
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+            html += '<span class="page-dots">...</span>';
+        }
+    }
+    
+    // Next button
+    html += `<button class="page-link ${currentPage === totalPages ? 'disabled' : ''}" 
+              onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                Next &raquo;
+            </button>`;
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ========== MODAL MANAGEMENT ==========
 function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -211,304 +334,67 @@ function closeModal(modalId) {
     }
 }
 
-function closeAllModals() {
-    const modals = document.querySelectorAll('.modal');
-    modals.forEach(modal => {
-        modal.style.display = 'none';
-    });
-    document.body.style.overflow = 'auto';
-}
-
-// ========== ALGORITHM DEMO ==========
-async function demoSorting(algorithm, key = 'nama') {
-    try {
-        const response = await fetch(`/api/sort?algorithm=${algorithm}&key=${key}`);
-        const result = await response.json();
-        
-        showAlert('info', 
-            `Algoritma: ${result.algorithm.toUpperCase()}\n` +
-            `Waktu eksekusi: ${result.execution_time_ms?.toFixed(2)}ms\n` +
-            `Time Complexity: ${result.time_complexity}`
-        );
-        
-        return result.sorted_data;
-    } catch (error) {
-        showAlert('error', 'Demo sorting gagal: ' + error.message);
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+        document.body.style.overflow = 'auto';
     }
-}
+});
 
-async function demoSearching(algorithm, value) {
-    try {
-        const response = await fetch(`/api/search?algorithm=${algorithm}&q=${value}`);
-        const result = await response.json();
-        
-        showAlert('info',
-            `Algoritma: ${result.algorithm.toUpperCase()}\n` +
-            `Hasil ditemukan: ${result.count || (result.found ? 'Ya' : 'Tidak')}\n` +
-            `Waktu eksekusi: ${result.execution_time_ms?.toFixed(2)}ms`
-        );
-        
-        return result.results || result.result;
-    } catch (error) {
-        showAlert('error', 'Demo searching gagal: ' + error.message);
+// Close modal with Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.style.display = 'none';
+        });
+        document.body.style.overflow = 'auto';
     }
-}
+});
 
-// ========== DATA TABLE FUNCTIONS ==========
-function renderDataTable(data, containerId, columns) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
+// ========== API CALL WRAPPER ==========
+async function apiCall(endpoint, method = 'GET', data = null) {
+    const token = localStorage.getItem('token');
+    const headers = {
+        'Authorization': `Bearer ${token}`
+    };
     
-    let html = `
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        ${columns.map(col => `<th>${col.label}</th>`).join('')}
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
+    let options = {
+        method: method,
+        headers: headers
+    };
     
-    data.forEach(item => {
-        html += '<tr>';
-        columns.forEach(col => {
-            html += `<td>${item[col.key] || ''}</td>`;
-        });
-        html += `
-            <td>
-                <button class="btn-icon" onclick="editItem('${item.id}')">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn-icon btn-danger" onclick="deleteItem('${item.id}')">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        </tr>`;
-    });
-    
-    html += `
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    container.innerHTML = html;
-}
-
-// ========== FORM HANDLING ==========
-async function submitForm(formId, endpoint, method = 'POST') {
-    const form = document.getElementById(formId);
-    if (!form) return;
-    
-    const formData = new FormData(form);
-    
-    try {
-        const response = await fetch(endpoint, {
-            method: method,
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            showAlert('success', result.message || 'Operasi berhasil');
-            form.reset();
-            closeAllModals();
-            // Refresh data jika perlu
-            if (typeof refreshData === 'function') {
-                refreshData();
-            }
+    if (data) {
+        if (data instanceof FormData) {
+            options.body = data;
         } else {
-            showAlert('error', result.detail || 'Operasi gagal');
+            headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(data);
         }
-    } catch (error) {
-        showAlert('error', 'Terjadi kesalahan: ' + error.message);
     }
-}
-
-// ========== FILE UPLOAD ==========
-async function uploadFile(file, endpoint) {
-    const formData = new FormData();
-    formData.append('file', file);
     
     try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
-        });
+        const response = await fetch(`${API_BASE}${endpoint}`, options);
         
-        return await response.json();
+        if (response.status === 401) {
+            logout();
+            throw new Error('Session expired. Please login again.');
+        }
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.detail || `HTTP ${response.status}`);
+        }
+        
+        return result;
     } catch (error) {
+        console.error('API Error:', error);
+        showAlert('error', error.message);
         throw error;
     }
 }
-
-// ========== NOTIFICATION SYSTEM ==========
-function showAlert(type, message) {
-    // Create alert element
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type}`;
-    alert.innerHTML = `
-        <span>${message}</span>
-        <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
-    `;
-    
-    // Add to alert container
-    let container = document.getElementById('alertContainer');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'alertContainer';
-        container.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 400px;
-        `;
-        document.body.appendChild(container);
-    }
-    
-    container.appendChild(alert);
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        if (alert.parentElement) {
-            alert.remove();
-        }
-    }, 5000);
-}
-
-// ========== UTILITY FUNCTIONS ==========
-function updateCurrentTime() {
-    const now = new Date();
-    const timeElement = document.getElementById('currentTime');
-    if (timeElement) {
-        timeElement.textContent = now.toLocaleString('id-ID', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID');
-}
-
-function formatNumber(num, decimals = 2) {
-    return num.toFixed(decimals);
-}
-
-function initWhatsAppLink() {
-    const whatsappBtn = document.getElementById('whatsappBtn');
-    if (whatsappBtn) {
-        whatsappBtn.addEventListener('click', function() {
-            const phone = '6282213407223';
-            const message = 'Halo, saya butuh bantuan terkait Sistem Manajemen Akademik';
-            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
-        });
-    }
-}
-
-function toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    const mainContent = document.querySelector('.main-content');
-    
-    sidebar.classList.toggle('collapsed');
-    mainContent.classList.toggle('expanded');
-}
-
-// ========== DATA VISUALIZATION ==========
-function createChart(ctx, type, data, options) {
-    return new Chart(ctx, {
-        type: type,
-        data: data,
-        options: options
-    });
-}
-
-// ========== EXPORT FUNCTIONS ==========
-function exportToCSV(data, filename) {
-    if (!data.length) return;
-    
-    const headers = Object.keys(data[0]);
-    const csvRows = [
-        headers.join(','),
-        ...data.map(row => 
-            headers.map(header => 
-                JSON.stringify(row[header] || '')
-            ).join(',')
-        )
-    ];
-    
-    const csvString = csvRows.join('\n');
-    const blob = new Blob([csvString], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${filename}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-// ========== VALIDATION FUNCTIONS ==========
-function validateEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-}
-
-function validateNIM(nim) {
-    const re = /^\d{10}$/;
-    return re.test(nim);
-}
-
-function validatePhone(phone) {
-    const re = /^08[1-9][0-9]{7,10}$/;
-    return re.test(phone);
-}
-
-// ========== EVENT LISTENERS ==========
-// Global event listener untuk aksi umum
-document.addEventListener('click', function(event) {
-    // Handle delete buttons
-    if (event.target.closest('.btn-delete')) {
-        const button = event.target.closest('.btn-delete');
-        const id = button.dataset.id;
-        const type = button.dataset.type;
-        
-        if (id && type) {
-            if (confirm(`Apakah Anda yakin ingin menghapus ${type} ini?`)) {
-                deleteItem(id, type);
-            }
-        }
-    }
-    
-    // Handle edit buttons
-    if (event.target.closest('.btn-edit')) {
-        const button = event.target.closest('.btn-edit');
-        const id = button.dataset.id;
-        const type = button.dataset.type;
-        
-        if (id && type) {
-            editItem(id, type);
-        }
-    }
-});
 
 // ========== ERROR HANDLING ==========
 window.addEventListener('error', function(event) {
@@ -521,54 +407,120 @@ window.addEventListener('unhandledrejection', function(event) {
     showAlert('error', 'Kesalahan sistem: ' + event.reason.message);
 });
 
-// ========== WEBSOCKET FOR REAL-TIME UPDATES ==========
-let socket = null;
+// ========== OFFLINE DETECTION ==========
+window.addEventListener('online', function() {
+    showAlert('success', 'Anda kembali online');
+});
 
-function connectWebSocket() {
-    if (socket) return;
-    
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    socket = new WebSocket(wsUrl);
-    
-    socket.onopen = function() {
-        console.log('WebSocket connected');
-    };
-    
-    socket.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-    };
-    
-    socket.onclose = function() {
-        console.log('WebSocket disconnected');
-        socket = null;
-        // Reconnect after 5 seconds
-        setTimeout(connectWebSocket, 5000);
-    };
-}
+window.addEventListener('offline', function() {
+    showAlert('warning', 'Anda sedang offline. Beberapa fitur mungkin tidak tersedia.');
+});
 
-function handleWebSocketMessage(data) {
-    switch (data.type) {
-        case 'notification':
-            showAlert('info', data.message);
-            break;
-        case 'data_update':
-            // Refresh data jika ada perubahan
-            if (typeof refreshData === 'function') {
-                refreshData();
-            }
-            break;
+// ========== LOADING INDICATOR ==========
+function showLoading(show = true) {
+    let loader = document.getElementById('loadingIndicator');
+    
+    if (show) {
+        if (!loader) {
+            loader = document.createElement('div');
+            loader.id = 'loadingIndicator';
+            loader.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+            `;
+            loader.innerHTML = `
+                <div class="spinner" style="
+                    width: 50px;
+                    height: 50px;
+                    border: 5px solid #f3f3f3;
+                    border-top: 5px solid #4f46e5;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                "></div>
+            `;
+            document.body.appendChild(loader);
+            
+            // Add animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        loader.style.display = 'flex';
+    } else if (loader) {
+        loader.style.display = 'none';
     }
 }
 
-// ========== INITIALIZE WEBSOCKET ==========
-if (window.location.pathname !== '/') {
-    connectWebSocket();
+// ========== DEBOUNCE FUNCTION ==========
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
-// ========== PWA SUPPORT ==========
+// ========== FORMAT FUNCTIONS ==========
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    });
+}
+
+function formatDateTime(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatNumber(num, decimals = 2) {
+    if (num === null || num === undefined) return '-';
+    return Number(num).toFixed(decimals);
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR'
+    }).format(amount);
+}
+
+// ========== INITIALIZE ON LOAD ==========
+// Auto-check auth on page changes
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        checkAuth();
+    }
+});
+
+// Initialize service worker for PWA
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
         navigator.serviceWorker.register('/service-worker.js')
@@ -580,12 +532,3 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
-
-// ========== OFFLINE SUPPORT ==========
-window.addEventListener('online', function() {
-    showAlert('success', 'Anda kembali online');
-});
-
-window.addEventListener('offline', function() {
-    showAlert('warning', 'Anda sedang offline. Beberapa fitur mungkin tidak tersedia.');
-});

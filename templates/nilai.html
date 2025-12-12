@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nilai & Absensi - Sistem Akademik</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/dark-mode.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <i class="fas fa-university"></i>
+            <h2>Akademik<span>Pro</span></h2>
+        </div>
+        
+        <div class="user-profile">
+            <img src="{{ user.foto_profil or url_for('static', path='images/default-avatar.png') }}" 
+                 alt="Profile" class="avatar" id="userAvatar">
+            <div class="user-info">
+                <h4 id="usernameDisplay">{{ user.nama }}</h4>
+                <p class="role-badge {{ user.role }}" id="userRole">{{ user.role|upper }}</p>
+            </div>
+        </div>
+        
+        <nav class="nav-menu">
+            <a href="/dashboard" class="nav-item">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            
+            {% if user.role == 'admin' %}
+            <a href="/users" class="nav-item">
+                <i class="fas fa-users-cog"></i> Management User
+            </a>
+            <a href="/dosen" class="nav-item">
+                <i class="fas fa-chalkboard-teacher"></i> Data Dosen
+            </a>
+            {% endif %}
+            
+            <a href="/mahasiswa" class="nav-item">
+                <i class="fas fa-user-graduate"></i> Data Mahasiswa
+            </a>
+            
+            {% if user.role == 'dosen' %}
+            <a href="/nilai" class="nav-item active">
+                <i class="fas fa-clipboard-list"></i> Nilai & Absensi
+            </a>
+            {% endif %}
+            
+            {% if user.role == 'mahasiswa' %}
+            <a href="/nilai" class="nav-item active">
+                <i class="fas fa-chart-line"></i> IPK & Nilai
+            </a>
+            {% endif %}
+            
+            <a href="/profile" class="nav-item">
+                <i class="fas fa-user-edit"></i> Edit Profile
+            </a>
+            
+            <div class="nav-divider"></div>
+            
+            <a href="#" class="nav-item" onclick="toggleDarkMode()">
+                <i class="fas fa-moon"></i> Mode Gelap
+            </a>
+            <a href="#" class="nav-item" id="whatsappBtn">
+                <i class="fab fa-whatsapp"></i> Customer Service
+            </a>
+        </nav>
+        
+        <button class="logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="toggle-btn" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </div>
+            
+            <h2>
+                {% if user.role == 'dosen' %}
+                📝 Nilai & Absensi
+                {% else %}
+                📊 IPK & Nilai Saya
+                {% endif %}
+            </h2>
+            
+            <div class="top-bar-actions">
+                <button class="btn-icon" onclick="toggleDarkMode()">
+                    <i class="fas fa-adjust"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="content-area">
+            {% if user.role == 'dosen' %}
+            <!-- DOSEN VIEW -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon mahasiswa">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ mahasiswa|length }}</h3>
+                        <p>Mahasiswa</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon nilai">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>45</h3>
+                        <p>Nilai Diberikan</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon tugas">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>3</h3>
+                        <p>Mata Kuliah</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon absensi">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>120</h3>
+                        <p>Absensi</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Bar -->
+            <div class="card action-bar">
+                <div class="action-group">
+                    <button class="btn-primary" onclick="showInputNilaiModal()">
+                        <i class="fas fa-plus"></i> Input Nilai
+                    </button>
+                    
+                    <button class="btn-secondary" onclick="showInputAbsensiModal()">
+                        <i class="fas fa-calendar-plus"></i> Input Absensi
+                    </button>
+                    
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Cari mahasiswa...">
+                    </div>
+                    
+                    <select id="matkulSelect" class="form-control" style="width: auto;">
+                        <option value="">Semua Mata Kuliah</option>
+                        <option value="TI101">Pemrograman Dasar</option>
+                        <option value="TI102">Struktur Data</option>
+                        <option value="TI103">Basis Data</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Data Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-table"></i> Daftar Nilai Mahasiswa</h3>
+                    <span class="badge">{{ mahasiswa|length }} mahasiswa</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>NIM</th>
+                                    <th>Nama</th>
+                                    <th>Mata Kuliah</th>
+                                    <th>Tugas</th>
+                                    <th>UTS</th>
+                                    <th>UAS</th>
+                                    <th>Nilai Akhir</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mhs in mahasiswa %}
+                                <tr>
+                                    <td><strong>{{ mhs.nim }}</strong></td>
+                                    <td>{{ mhs.nama }}</td>
+                                    <td>Pemrograman Dasar</td>
+                                    <td>
+                                        <input type="number" class="form-control-sm" value="85" style="width: 60px;" 
+                                               onchange="updateNilai('{{ mhs.nim }}', 'tugas', this.value)">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control-sm" value="78" style="width: 60px;"
+                                               onchange="updateNilai('{{ mhs.nim }}', 'uts', this.value)">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control-sm" value="82" style="width: 60px;"
+                                               onchange="updateNilai('{{ mhs.nim }}', 'uas', this.value)">
+                                    </td>
+                                    <td>
+                                        <span class="badge success">81.7</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge success">Lulus</span>
+                                    </td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon btn-info" onclick="viewNilaiDetail('{{ mhs.nim }}')">
+                                                <i class="fas fa-chart-line"></i>
+                                            </button>
+                                            <button class="btn-icon btn-warning" onclick="editNilai('{{ mhs.nim }}')">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Absensi Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-calendar-alt"></i> Rekap Absensi</h3>
+                    <span class="badge">Pertemuan 1-12</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="data-table compact">
+                            <thead>
+                                <tr>
+                                    <th>NIM</th>
+                                    <th>Nama</th>
+                                    {% for i in range(1, 13) %}
+                                    <th>P{{ i }}</th>
+                                    {% endfor %}
+                                    <th>% Hadir</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mhs in mahasiswa[:5] %}
+                                <tr>
+                                    <td>{{ mhs.nim }}</td>
+                                    <td>{{ mhs.nama }}</td>
+                                    {% for i in range(1, 13) %}
+                                    <td>
+                                        <select class="form-control-xs status-select" 
+                                                onchange="updateAbsensi('{{ mhs.nim }}', {{ i }}, this.value)">
+                                            <option value="H" {% if i <= 9 %}selected{% endif %}>H</option>
+                                            <option value="I">I</option>
+                                            <option value="S">S</option>
+                                            <option value="A" {% if i > 9 %}selected{% endif %}>A</option>
+                                        </select>
+                                    </td>
+                                    {% endfor %}
+                                    <td>
+                                        <span class="badge {% if mhs.presensi_rate >= 80 %}success{% else %}warning{% endif %}">
+                                            {{ mhs.presensi_rate or 75 }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            {% else %}
+            <!-- MAHASISWA VIEW -->
+            {% set mhs_data = none %}
+            {% for mhs in mahasiswa %}
+                {% if mhs.nim == user.username %}
+                    {% set mhs_data = mhs %}
+                {% endif %}
+            {% endfor %}
+            
+            {% if mhs_data %}
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon ipk">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ "%.2f"|format(mhs_data.ipk) if mhs_data.ipk else '0.00' }}</h3>
+                        <p>IPK</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon sks">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ mhs_data.total_sks if mhs_data.total_sks else 0 }}</h3>
+                        <p>Total SKS</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon presensi">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>
+                            {% if mhs_data.presensi_rate %}
+                                {{ "%.1f"|format(mhs_data.presensi_rate) }}%
+                            {% else %}
+                                0.0%
+                            {% endif %}
+                        </h3>
+                        <p>Presensi</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon matkul">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>
+                            {% if mhs_data.nilai %}
+                                {{ mhs_data.nilai|length }}
+                            {% else %}
+                                0
+                            {% endif %}
+                        </h3>
+                        <p>Mata Kuliah</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- IPK Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-chart-line"></i> Perkembangan IPK per Semester</h3>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="ipkChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Nilai Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-clipboard-list"></i> Nilai Mata Kuliah</h3>
+                    <span class="badge">
+                        {% if mhs_data.nilai %}
+                            {{ mhs_data.nilai|length }}
+                        {% else %}
+                            0
+                        {% endif %} mata kuliah
+                    </span>
+                </div>
+                <div class="card-body">
+                    {% if mhs_data.nilai and mhs_data.nilai|length > 0 %}
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Kode</th>
+                                    <th>Mata Kuliah</th>
+                                    <th>SKS</th>
+                                    <th>Tugas</th>
+                                    <th>UTS</th>
+                                    <th>UAS</th>
+                                    <th>Nilai Akhir</th>
+                                    <th>Grade</th>
+                                    <th>Semester</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for nilai in mhs_data.nilai %}
+                                <tr>
+                                    <td>{{ nilai.kode_matkul or '-' }}</td>
+                                    <td>{{ nilai.nama_matkul or '-' }}</td>
+                                    <td>{{ nilai.sks or '0' }}</td>
+                                    <td>{{ nilai.nilai_tugas or '-' }}</td>
+                                    <td>{{ nilai.nilai_uts or '-' }}</td>
+                                    <td>{{ nilai.nilai_uas or '-' }}</td>
+                                    <td>
+                                        {% if nilai.nilai_akhir %}
+                                        <span class="badge 
+                                            {% if nilai.nilai_akhir >= 85 %}success
+                                            {% elif nilai.nilai_akhir >= 70 %}warning
+                                            {% else %}danger
+                                            {% endif %}">
+                                            {{ nilai.nilai_akhir }}
+                                        </span>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if nilai.nilai_akhir %}
+                                            {% if nilai.nilai_akhir >= 85 %}
+                                                {% set grade = 'A' %}
+                                            {% elif nilai.nilai_akhir >= 70 %}
+                                                {% set grade = 'B' %}
+                                            {% elif nilai.nilai_akhir >= 60 %}
+                                                {% set grade = 'C' %}
+                                            {% elif nilai.nilai_akhir >= 50 %}
+                                                {% set grade = 'D' %}
+                                            {% else %}
+                                                {% set grade = 'E' %}
+                                            {% endif %}
+                                            <span class="badge grade-{{ grade|lower }}">{{ grade }}</span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if nilai.semester and nilai.tahun %}
+                                            {{ nilai.semester|title }} {{ nilai.tahun }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-list fa-3x"></i>
+                        <h3>Belum ada nilai</h3>
+                        <p>Nilai akan ditampilkan setelah dosen menginputkan</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Absensi Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-calendar-alt"></i> Rekap Absensi</h3>
+                </div>
+                <div class="card-body">
+                    {% if mhs_data and mhs_data.absensi %}
+                    <div class="table-responsive">
+                        <table class="data-table compact">
+                            <thead>
+                                <tr>
+                                    <th>Mata Kuliah</th>
+                                    <th>Tanggal</th>
+                                    <th>Status</th>
+                                    <th>Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for absen in mhs_data.absensi[:10] %}
+                                <tr>
+                                    <td>{{ absen.kode_matkul or '-' }}</td>
+                                    <td>{{ absen.tanggal or '-' }}</td>
+                                    <td>
+                                        {% if absen.status == 'hadir' %}
+                                        <span class="badge success">Hadir</span>
+                                        {% elif absen.status == 'izin' %}
+                                        <span class="badge warning">Izin</span>
+                                        {% elif absen.status == 'sakit' %}
+                                        <span class="badge info">Sakit</span>
+                                        {% else %}
+                                        <span class="badge danger">Alpha</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ absen.keterangan|default('-') }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state-sm">
+                        <i class="fas fa-calendar-alt"></i>
+                        <p>Belum ada data absensi</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-user-graduate fa-3x"></i>
+                <h3>Data tidak ditemukan</h3>
+                <p>Data mahasiswa tidak ditemukan dalam sistem</p>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Modal Input Nilai -->
+    <div id="inputNilaiModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Input Nilai Mahasiswa</h3>
+                <span class="close" onclick="closeModal('inputNilaiModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="inputNilaiForm">
+                    <div class="form-group">
+                        <label>Pilih Mahasiswa</label>
+                        <select id="mahasiswaSelect" class="form-control" required>
+                            <option value="">Pilih Mahasiswa</option>
+                            {% for mhs in mahasiswa %}
+                            <option value="{{ mhs.nim }}">{{ mhs.nim }} - {{ mhs.nama }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Mata Kuliah</label>
+                        <select id="matkulInput" class="form-control" required>
+                            <option value="TI101">TI101 - Pemrograman Dasar</option>
+                            <option value="TI102">TI102 - Struktur Data</option>
+                            <option value="TI103">TI103 - Basis Data</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nilai Tugas</label>
+                            <input type="number" id="nilaiTugas" class="form-control" min="0" max="100" step="0.1" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Nilai UTS</label>
+                            <input type="number" id="nilaiUTS" class="form-control" min="0" max="100" step="0.1" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Nilai UAS</label>
+                            <input type="number" id="nilaiUAS" class="form-control" min="0" max="100" step="0.1" required>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="closeModal('inputNilaiModal')">Batal</button>
+                        <button type="submit" class="btn-primary">Simpan Nilai</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', path='js/script.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserData();
+            initWhatsApp();
+            
+            {% if user.role != 'dosen' %}
+            // Initialize chart for mahasiswa
+            if (document.getElementById('ipkChart')) {
+                initIPKChart();
+            }
+            {% endif %}
+        });
+        
+        function showInputNilaiModal() {
+            document.getElementById('inputNilaiModal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        function initIPKChart() {
+            const ctx = document.getElementById('ipkChart').getContext('2d');
+            
+            // Sample data - in real app, fetch from API
+            const data = {
+                labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Sem 6'],
+                datasets: [{
+                    label: 'IPK',
+                    data: [3.2, 3.4, 3.5, 3.6, 3.7, 3.8],
+                    borderColor: '#4f46e5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'IPS',
+                    data: [3.3, 3.5, 3.4, 3.7, 3.6, 3.8],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            };
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Perkembangan Nilai per Semester'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: 2.5,
+                            max: 4.0
+                        }
+                    }
+                }
+            });
+        }
+        
+        async function updateNilai(nim, type, value) {
+            // In real app, send to API
+            console.log(`Update nilai ${type} for ${nim}: ${value}`);
+        }
+        
+        async function updateAbsensi(nim, pertemuan, status) {
+            // In real app, send to API
+            console.log(`Update absensi ${pertemuan} for ${nim}: ${status}`);
+        }
+        
+        document.getElementById('inputNilaiForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const nim = document.getElementById('mahasiswaSelect').value;
+            const kodeMatkul = document.getElementById('matkulInput').value;
+            const nilaiTugas = document.getElementById('nilaiTugas').value;
+            const nilaiUTS = document.getElementById('nilaiUTS').value;
+            const nilaiUAS = document.getElementById('nilaiUAS').value;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const formData = new FormData();
+                formData.append('kode_matkul', kodeMatkul);
+                formData.append('nilai_tugas', nilaiTugas);
+                formData.append('nilai_uts', nilaiUTS);
+                formData.append('nilai_uas', nilaiUAS);
+                
+                const response = await fetch(`/api/mahasiswa/${nim}/nilai`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Nilai berhasil disimpan!');
+                    closeModal('inputNilaiModal');
+                    this.reset();
+                } else {
+                    alert('❌ ' + (result.detail || 'Gagal menyimpan nilai'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        };
+        
+        // Close modal jika klik di luar
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            });
+        };
+    </script>
+</body>
+</html>
