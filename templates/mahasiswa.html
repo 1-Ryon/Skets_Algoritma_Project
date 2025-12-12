@@ -213,43 +213,40 @@
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody id="tableBody">
-                                {% for mhs in mahasiswa %}
-                                <tr data-nim="{{ mhs.nim }}" data-ipk="{{ mhs.ipk }}" data-nama="{{ mhs.nama|lower }}">
-                                    <td><strong>{{ mhs.nim }}</strong></td>
-                                    <td>{{ mhs.nama }}</td>
-                                    <td>{{ mhs.jurusan }}</td>
-                                    <td>{{ mhs.angkatan }}</td>
-                                    <td>
-                                        <span class="badge {% if mhs.ipk >= 3.5 %}success{% elif mhs.ipk >= 3.0 %}warning{% else %}danger{% endif %}">
-                                            {{ "%.2f"|format(mhs.ipk) }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="progress-bar">
-                                            <div class="progress-fill" style="width: {{ mhs.presensi_rate|default(0) }}%"></div>
-                                            <span>{{ "%.1f"|format(mhs.presensi_rate|default(0)) }}%</span>
-                                        </div>
-                                    </td>
-                                    <td>{{ mhs.total_sks|default(0) }}</td>
-                                    <td>
-                                        <div class="action-buttons">
-                                            <button class="btn-icon btn-info" onclick="viewDetail('{{ mhs.nim }}')" title="Detail">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            {% if user.role == 'admin' %}
-                                            <button class="btn-icon btn-warning" onclick="editMahasiswa('{{ mhs.nim }}')" title="Edit">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="btn-icon btn-danger" onclick="deleteMahasiswa('{{ mhs.nim }}', '{{ mhs.nama }}')" title="Hapus">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
+<tbody id="tableBody">
+    {% for nhs in mahasiswa %}
+    <tr data-nim="{{ nhs.nim }}" data-ipk="{{ nhs.ipk }}" data-nama="{{ nhs.nama|lower }}">
+        <td><strong>{{ nhs.nim }}</strong></td>
+        <td>{{ nhs.nama }}</td>
+        <td>{{ nhs.jurusan }}</td>
+        <td>{{ nhs.angkatan }}</td>
+        <td>
+            <span class="badge {% if nhs.ipk >= 3.5 %}success{% elif nhs.ipk >= 3.0 %}warning{% else %}danger{% endif %}">
+                {{ "%0.2f"|format(nhs.ipk) }}
+            </span>
+        </td>
+        <td>
+            <div class="progress-bar" data-presensi="{{ nhs.presensi_rate|default(0) }}">
+                <div class="progress-fill"></div>
+                <span>{{ "%0.1f"|format(nhs.presensi_rate|default(0)) }}%</span>
+            </div>
+        </td>
+        <td>{{ nhs.total_sks|default(0) }}</td>
+        <td>
+            <div class="action-button">
+                <button class="btn-icon btn-info" onclick="viewDetail('{{ nhs.nim }}')" title="Detail">
+                    <i class="fas fa-eye"></i>
+                </button>
+                {% if user.role == 'admin' %}
+                <button class="btn-icon btn-warning" onclick="editMahasiswa('{{ nhs.nim }}')" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                {% endif %}
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+                                </tbody>
                         </table>
                     </div>
                     
@@ -358,300 +355,328 @@
         </div>
     </div>
     
-    <script src="{{ url_for('static', path='js/script.js') }}"></script>
-    <script>
-        let currentData = {{ mahasiswa|tojson }};
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            loadUserData();
-            initSearch();
-            initWhatsApp();
-        });
-        
-        function showAddMahasiswaModal() {
-            document.getElementById('addMahasiswaModal').style.display = 'block';
-        }
-        
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
-        
-        function initSearch() {
-            const searchInput = document.getElementById('searchInput');
-            searchInput.addEventListener('keyup', function() {
-                const query = this.value.toLowerCase();
-                const rows = document.querySelectorAll('#tableBody tr');
+<script src="{{ url_for('static', path='js/script.js') }}"></script>
+<script>
+    // Simpan data dari server ke variabel JavaScript (FIXED!)
+    let currentData = JSON.parse('{{ mahasiswa|tojson|safe }}');
+    let currentUserRole = '{{ user.role }}';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUserData();
+        initSearch();
+        initWhatsApp();
+        applyProgressBars();
+    });
+    
+    function showAddMahasiswaModal() {
+        document.getElementById('addMahasiswaModal').style.display = 'block';
+    }
+    
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+    
+    function initSearch() {
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('keyup', function() {
+            const query = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#tableBody tr');
+            
+            rows.forEach(row => {
+                const nama = row.getAttribute('data-nama');
+                const nim = row.getAttribute('data-nim');
+                const text = row.textContent.toLowerCase();
                 
-                rows.forEach(row => {
-                    const nama = row.getAttribute('data-nama');
-                    const nim = row.getAttribute('data-nim');
-                    const text = row.textContent.toLowerCase();
-                    
-                    if (text.includes(query) || nama.includes(query) || nim.includes(query)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
+                if (text.includes(query) || (nama && nama.includes(query)) || (nim && nim.includes(query))) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
             });
+        });
+    }
+    
+    function sortTable() {
+        const sortBy = document.getElementById('sortSelect').value;
+        let sortedData = [...currentData];
+        
+        switch(sortBy) {
+            case 'nama_asc':
+                sortedData.sort((a, b) => a.nama.localeCompare(b.nama));
+                break;
+            case 'nama_desc':
+                sortedData.sort((a, b) => b.nama.localeCompare(a.nama));
+                break;
+            case 'ipk_desc':
+                sortedData.sort((a, b) => b.ipk - a.ipk);
+                break;
+            case 'ipk_asc':
+                sortedData.sort((a, b) => a.ipk - b.ipk);
+                break;
+            case 'nim_asc':
+                sortedData.sort((a, b) => a.nim.localeCompare(b.nim));
+                break;
+            case 'nim_desc':
+                sortedData.sort((a, b) => b.nim.localeCompare(a.nim));
+                break;
         }
         
-        function sortTable() {
-            const sortBy = document.getElementById('sortSelect').value;
-            let sortedData = [...currentData];
-            
-            switch(sortBy) {
-                case 'nama_asc':
-                    sortedData.sort((a, b) => a.nama.localeCompare(b.nama));
-                    break;
-                case 'nama_desc':
-                    sortedData.sort((a, b) => b.nama.localeCompare(a.nama));
-                    break;
-                case 'ipk_desc':
-                    sortedData.sort((a, b) => b.ipk - a.ipk);
-                    break;
-                case 'ipk_asc':
-                    sortedData.sort((a, b) => a.ipk - b.ipk);
-                    break;
-                case 'nim_asc':
-                    sortedData.sort((a, b) => a.nim.localeCompare(b.nim));
-                    break;
-                case 'nim_desc':
-                    sortedData.sort((a, b) => b.nim.localeCompare(a.nim));
-                    break;
-            }
-            
-            renderTable(sortedData);
-        }
+        renderTable(sortedData);
+    }
+    
+    async function applyAlgorithm() {
+        const algo = document.getElementById('algorithmSelect').value;
+        const searchInput = document.getElementById('searchInput').value;
         
-        async function applyAlgorithm() {
-            const algo = document.getElementById('algorithmSelect').value;
-            const searchInput = document.getElementById('searchInput').value;
-            
-            if (algo.includes('search')) {
-                if (!searchInput) {
-                    alert('Masukkan kata kunci pencarian!');
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(`/api/search?q=${encodeURIComponent(searchInput)}&algorithm=${algo.split('_')[0]}`);
-                    const result = await response.json();
-                    
-                    if (result.error) {
-                        alert(result.error);
-                    } else {
-                        renderTable(result.results || [result.result].filter(Boolean));
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            } else if (algo.includes('sort')) {
-                const [algoName, order] = algo.split('_');
-                
-                try {
-                    const response = await fetch(`/api/sort?algorithm=${algoName}&key=ipk&order=${order}`);
-                    const result = await response.json();
-                    
-                    renderTable(result.sorted_data);
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            }
-        }
-        
-        function renderTable(data) {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = '';
-            
-            if (data.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="8" class="text-center">
-                            <div class="empty-state-sm">
-                                <i class="fas fa-search"></i>
-                                <p>Tidak ada data yang ditemukan</p>
-                            </div>
-                        </td>
-                    </tr>
-                `;
+        if (algo.includes('search')) {
+            if (!searchInput) {
+                alert('Masukkan kata kunci pencarian!');
                 return;
             }
             
-            data.forEach(mhs => {
-                const row = document.createElement('tr');
-                row.setAttribute('data-nim', mhs.nim);
-                row.setAttribute('data-ipk', mhs.ipk);
-                row.setAttribute('data-nama', mhs.nama.toLowerCase());
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(searchInput)}&algorithm=${algo.split('_')[0]}`);
+                const result = await response.json();
                 
-                row.innerHTML = `
-                    <td><strong>${mhs.nim}</strong></td>
-                    <td>${mhs.nama}</td>
-                    <td>${mhs.jurusan}</td>
-                    <td>${mhs.angkatan}</td>
-                    <td>
-                        <span class="badge ${mhs.ipk >= 3.5 ? 'success' : mhs.ipk >= 3.0 ? 'warning' : 'danger'}">
-                            ${mhs.ipk.toFixed(2)}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${mhs.presensi_rate || 0}%"></div>
-                            <span>${(mhs.presensi_rate || 0).toFixed(1)}%</span>
+                if (result.error) {
+                    alert(result.error);
+                } else {
+                    renderTable(result.results || [result.result].filter(Boolean));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        } else if (algo.includes('sort')) {
+            const [algoName, order] = algo.split('_');
+            
+            try {
+                const response = await fetch(`/api/sort?algorithm=${algoName}&key=ipk&order=${order}`);
+                const result = await response.json();
+                
+                renderTable(result.sorted_data);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+    }
+    
+    function renderTable(data) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        
+        if (data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="empty-state-sm">
+                            <i class="fas fa-search"></i>
+                            <p>Tidak ada data yang ditemukan</p>
                         </div>
                     </td>
-                    <td>${mhs.total_sks || 0}</td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn-icon btn-info" onclick="viewDetail('${mhs.nim}')" title="Detail">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            {% if user.role == 'admin' %}
-                            <button class="btn-icon btn-warning" onclick="editMahasiswa('${mhs.nim}')" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn-icon btn-danger" onclick="deleteMahasiswa('${mhs.nim}', '${mhs.nama}')" title="Hapus">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                            {% endif %}
-                        </div>
-                    </td>
-                `;
-                
-                tbody.appendChild(row);
-            });
+                </tr>
+            `;
+            return;
         }
         
-        async function viewDetail(nim) {
-            try {
-                const response = await fetch(`/api/mahasiswa/${nim}`);
-                if (!response.ok) throw new Error('Data tidak ditemukan');
-                
-                const data = await response.json();
-                
-                document.getElementById('detailContent').innerHTML = `
-                    <div class="detail-view">
-                        <div class="detail-header">
-                            <h4>${data.nama}</h4>
-                            <span class="badge mahasiswa">${data.nim}</span>
+        data.forEach(mhs => {
+            const row = document.createElement('tr');
+            row.setAttribute('data-nim', mhs.nim);
+            row.setAttribute('data-ipk', mhs.ipk);
+            row.setAttribute('data-nama', mhs.nama.toLowerCase());
+            
+            // Tentukan tombol admin (INI FIX!)
+            let adminButtons = '';
+            if (currentUserRole === 'admin') {
+                adminButtons = `
+                    <button class="btn-icon btn-warning" onclick="editMahasiswa('${mhs.nim}')" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon btn-danger" onclick="deleteMahasiswa('${mhs.nim}', '${mhs.nama}')" title="Hapus">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+            }
+            
+            row.innerHTML = `
+                <td><strong>${mhs.nim}</strong></td>
+                <td>${mhs.nama}</td>
+                <td>${mhs.jurusan}</td>
+                <td>${mhs.angkatan}</td>
+                <td>
+                    <span class="badge ${mhs.ipk >= 3.5 ? 'success' : mhs.ipk >= 3.0 ? 'warning' : 'danger'}">
+                        ${mhs.ipk.toFixed(2)}
+                    </span>
+                </td>
+                <td>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${mhs.presensi_rate || 0}%"></div>
+                        <span>${(mhs.presensi_rate || 0).toFixed(1)}%</span>
+                    </div>
+                </td>
+                <td>${mhs.total_sks || 0}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon btn-info" onclick="viewDetail('${mhs.nim}')" title="Detail">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${adminButtons}
+                    </div>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+        // Apply progress bars for server-rendered entries
+        applyProgressBars();
+    }
+
+    function applyProgressBars() {
+        const bars = document.querySelectorAll('.progress-bar');
+        bars.forEach(bar => {
+            const rate = parseFloat(bar.dataset.presensi) || 0;
+            const fill = bar.querySelector('.progress-fill');
+            if (fill) fill.style.width = rate + '%';
+            const span = bar.querySelector('span');
+            if (span) span.textContent = rate.toFixed(1) + '%';
+        });
+    }
+    
+    async function viewDetail(nim) {
+        try {
+            const response = await fetch(`/api/mahasiswa/${nim}`);
+            if (!response.ok) throw new Error('Data tidak ditemukan');
+            
+            const data = await response.json();
+            
+            document.getElementById('detailContent').innerHTML = `
+                <div class="detail-view">
+                    <div class="detail-header">
+                        <h4>${data.nama}</h4>
+                        <span class="badge mahasiswa">${data.nim}</span>
+                    </div>
+                    
+                    <div class="detail-info">
+                        <div class="info-row">
+                            <span class="info-label">Jurusan:</span>
+                            <span class="info-value">${data.jurusan}</span>
                         </div>
-                        
-                        <div class="detail-info">
-                            <div class="info-row">
-                                <span class="info-label">Jurusan:</span>
-                                <span class="info-value">${data.jurusan}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Angkatan:</span>
-                                <span class="info-value">${data.angkatan}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">IPK:</span>
-                                <span class="info-value">${data.ipk.toFixed(2)}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Total SKS:</span>
-                                <span class="info-value">${data.total_sks}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Presensi:</span>
-                                <span class="info-value">${(data.presensi_rate || 0).toFixed(1)}%</span>
-                            </div>
+                        <div class="info-row">
+                            <span class="info-label">Angkatan:</span>
+                            <span class="info-value">${data.angkatan}</span>
                         </div>
-                        
-                        ${data.nilai && data.nilai.length > 0 ? `
-                        <h5>Nilai Terakhir:</h5>
-                        <div class="detail-list">
-                            ${data.nilai.slice(0, 3).map(n => `
+                        <div class="info-row">
+                            <span class="info-label">IPK:</span>
+                            <span class="info-value">${data.ipk.toFixed(2)}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Total SKS:</span>
+                            <span class="info-value">${data.total_sks}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Presensi:</span>
+                            <span class="info-value">${(data.presensi_rate || 0).toFixed(1)}%</span>
+                        </div>
+                    </div>
+                    
+                    ${data.nilai && data.nilai.length > 0 ? `
+                    <h5>Nilai Terakhir:</h5>
+                    <div class="detail-list">
+                        ${data.nilai.slice(0, 3).map(n => {
+                            let badgeClass = 'warning';
+                            if (n.nilai_akhir >= 85) badgeClass = 'success';
+                            else if (n.nilai_akhir < 70) badgeClass = 'danger';
+                            
+                            return `
                                 <div class="list-item">
-                                    <span>${n.nama_matkul}</span>
-                                    <span class="badge ${n.nilai_akhir >= 85 ? 'success' : n.nilai_akhir >= 70 ? 'warning' : 'danger'}">
+                                    <span>${n.nama_matkul || 'Unknown'}</span>
+                                    <span class="badge ${badgeClass}">
                                         ${n.nilai_akhir}
                                     </span>
                                 </div>
-                            `).join('')}
-                        </div>
-                        ` : ''}
+                            `;
+                        }).join('')}
                     </div>
-                `;
-                
-                document.getElementById('detailModal').style.display = 'block';
-            } catch (error) {
-                document.getElementById('detailContent').innerHTML = `
-                    <div class="error-state">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <p>${error.message}</p>
-                    </div>
-                `;
-                document.getElementById('detailModal').style.display = 'block';
-            }
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('detailModal').style.display = 'block';
+        } catch (error) {
+            document.getElementById('detailContent').innerHTML = `
+                <div class="error-state">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>${error.message}</p>
+                </div>
+            `;
+            document.getElementById('detailModal').style.display = 'block';
         }
+    }
+    
+    async function deleteMahasiswa(nim, nama) {
+        if (!confirm(`Hapus mahasiswa ${nama} (${nim})?`)) return;
         
-        async function deleteMahasiswa(nim, nama) {
-            if (!confirm(`Hapus mahasiswa ${nama} (${nim})?`)) return;
-            
-            try {
-                const token = localStorage.getItem('token');
-                const response = await fetch(`/api/mahasiswa/${nim}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                
-                if (response.ok) {
-                    alert('Mahasiswa berhasil dihapus');
-                    location.reload();
-                } else {
-                    const error = await response.json();
-                    alert(error.detail || 'Gagal menghapus');
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        }
-        
-        document.getElementById('addMahasiswaForm').onsubmit = async function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData();
-            formData.append('nama', document.getElementById('nama').value);
-            formData.append('jurusan', document.getElementById('jurusan').value);
-            formData.append('angkatan', document.getElementById('angkatan').value);
-            
-            try {
-                const token = localStorage.getItem('token');
-                const response = await fetch('/api/mahasiswa', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    alert(`✅ Mahasiswa berhasil dibuat!\nNIM: ${result.data.mahasiswa.nim}\nPassword: ${result.data.login_info.initial_password}`);
-                    closeModal('addMahasiswaModal');
-                    location.reload();
-                } else {
-                    alert('❌ ' + (result.detail || 'Gagal membuat mahasiswa'));
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        };
-        
-        // Close modal jika klik di luar
-        window.onclick = function(event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target == modal) {
-                    modal.style.display = "none";
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/mahasiswa/${nim}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
                 }
             });
-        };
-    </script>
+            
+            if (response.ok) {
+                alert('Mahasiswa berhasil dihapus');
+                location.reload();
+            } else {
+                const error = await response.json();
+                alert(error.detail || 'Gagal menghapus');
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    document.getElementById('addMahasiswaForm').onsubmit = async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        formData.append('nama', document.getElementById('nama').value);
+        formData.append('jurusan', document.getElementById('jurusan').value);
+        formData.append('angkatan', document.getElementById('angkatan').value);
+        
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('/api/mahasiswa', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert(`✅ Mahasiswa berhasil dibuat!\nNIM: ${result.data.mahasiswa.nim}\nPassword: ${result.data.login_info.initial_password}`);
+                closeModal('addMahasiswaModal');
+                location.reload();
+            } else {
+                alert('❌ ' + (result.detail || 'Gagal membuat mahasiswa'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    };
+    
+    // Close modal jika klik di luar
+    window.onclick = function(event) {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        });
+    };
+</script>
 </body>
 </html>

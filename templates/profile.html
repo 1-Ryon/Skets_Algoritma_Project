@@ -355,154 +355,156 @@
         </div>
     </div>
     
-    <script src="{{ url_for('static', path='js/script.js') }}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            loadUserData();
-            initWhatsApp();
-        });
+<script src="{{ url_for('static', path='js/script.js') }}"></script>
+<script>
+    // Simpan user role ke variabel JavaScript (FIXED!)
+    const userRole = '{{ user.role }}';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUserData();
+        initWhatsApp();
+    });
+    
+    function showChangePasswordModal() {
+        document.getElementById('changePasswordModal').style.display = 'block';
+    }
+    
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+    
+    async function uploadPhoto(file) {
+        if (!file) return;
         
-        function showChangePasswordModal() {
-            document.getElementById('changePasswordModal').style.display = 'block';
+        if (!file.type.startsWith('image/')) {
+            alert('File harus berupa gambar');
+            return;
         }
         
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
+        if (file.size > 5 * 1024 * 1024) { // 5MB
+            alert('Ukuran file maksimal 5MB');
+            return;
         }
         
-        async function uploadPhoto(file) {
-            if (!file) return;
-            
-            if (!file.type.startsWith('image/')) {
-                alert('File harus berupa gambar');
-                return;
-            }
-            
-            if (file.size > 5 * 1024 * 1024) { // 5MB
-                alert('Ukuran file maksimal 5MB');
-                return;
-            }
-            
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                const token = localStorage.getItem('token');
-                const response = await fetch('/api/upload-photo', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    alert('✅ Foto profil berhasil diupload!');
-                    document.getElementById('userAvatar').src = result.file_url;
-                    document.getElementById('profileAvatar').src = result.file_url;
-                } else {
-                    alert('❌ ' + (result.detail || 'Gagal upload foto'));
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        }
-        
-        document.getElementById('editProfileForm').onsubmit = async function(e) {
-            e.preventDefault();
-            
+        try {
             const formData = new FormData();
-            formData.append('nama', document.getElementById('editNama').value);
-            formData.append('email', document.getElementById('editEmail').value);
+            formData.append('file', file);
             
-            {% if user.role == 'mahasiswa' %}
+            const token = localStorage.getItem('token');
+            const response = await fetch('/api/upload-photo', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('✅ Foto profil berhasil diupload!');
+                document.getElementById('userAvatar').src = result.file_url;
+                document.getElementById('profileAvatar').src = result.file_url;
+            } else {
+                alert('❌ ' + (result.detail || 'Gagal upload foto'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    document.getElementById('editProfileForm').onsubmit = async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        formData.append('nama', document.getElementById('editNama').value);
+        formData.append('email', document.getElementById('editEmail').value);
+        
+        // Tambahkan field berdasarkan role (INI FIX!)
+        if (userRole === 'mahasiswa') {
             formData.append('jurusan', document.getElementById('editJurusan').value);
             formData.append('angkatan', document.getElementById('editAngkatan').value);
-            {% elif user.role == 'dosen' %}
+        } else if (userRole === 'dosen') {
             formData.append('bidang', document.getElementById('editBidang').value);
-            {% endif %}
-            
-            formData.append('bio', document.getElementById('editBio').value);
-            
-            try {
-                const token = localStorage.getItem('token');
-                const response = await fetch('/api/profile', {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    alert('✅ Profil berhasil diperbarui!');
-                    location.reload();
-                } else {
-                    alert('❌ ' + (result.detail || 'Gagal memperbarui profil'));
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        };
+        }
         
-        document.getElementById('changePasswordForm').onsubmit = async function(e) {
-            e.preventDefault();
-            
-            const oldPassword = document.getElementById('oldPassword').value;
-            const newPassword = document.getElementById('newPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-            
-            if (newPassword !== confirmPassword) {
-                alert('Password baru tidak cocok!');
-                return;
-            }
-            
-            if (newPassword.length < 6) {
-                alert('Password baru minimal 6 karakter!');
-                return;
-            }
-            
-            try {
-                const token = localStorage.getItem('token');
-                const formData = new FormData();
-                formData.append('old_password', oldPassword);
-                formData.append('new_password', newPassword);
-                
-                const response = await fetch('/api/change-password', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    alert('✅ Password berhasil diubah!');
-                    closeModal('changePasswordModal');
-                    this.reset();
-                } else {
-                    alert('❌ ' + (result.detail || 'Gagal mengubah password'));
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        };
+        formData.append('bio', document.getElementById('editBio').value);
         
-        // Close modal jika klik di luar
-        window.onclick = function(event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target == modal) {
-                    modal.style.display = "none";
-                }
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('/api/profile', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
             });
-        };
-    </script>
-</body>
-</html>
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('✅ Profil berhasil diperbarui!');
+                location.reload();
+            } else {
+                alert('❌ ' + (result.detail || 'Gagal memperbarui profil'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    };
+    
+    document.getElementById('changePasswordForm').onsubmit = async function(e) {
+        e.preventDefault();
+        
+        const oldPassword = document.getElementById('oldPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (newPassword !== confirmPassword) {
+            alert('Password baru tidak cocok!');
+            return;
+        }
+        
+        if (newPassword.length < 6) {
+            alert('Password baru minimal 6 karakter!');
+            return;
+        }
+        
+        try {
+            const token = localStorage.getItem('token');
+            const formData = new FormData();
+            formData.append('old_password', oldPassword);
+            formData.append('new_password', newPassword);
+            
+            const response = await fetch('/api/change-password', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('✅ Password berhasil diubah!');
+                closeModal('changePasswordModal');
+                this.reset();
+            } else {
+                alert('❌ ' + (result.detail || 'Gagal mengubah password'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    };
+    
+    // Close modal jika klik di luar
+    window.onclick = function(event) {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        });
+    };
+</script>

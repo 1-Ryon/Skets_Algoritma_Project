@@ -259,7 +259,7 @@
                                     {% for i in range(1, 13) %}
                                     <td>
                                         <select class="form-control-xs status-select" 
-                                                onchange="updateAbsensi('{{ mhs.nim }}', {{ i }}, this.value)">
+                                            data-nim="{{ mhs.nim }}" data-i="{{ i|int }}">
                                             <option value="H" {% if i <= 9 %}selected{% endif %}>H</option>
                                             <option value="I">I</option>
                                             <option value="S">S</option>
@@ -559,135 +559,145 @@
         </div>
     </div>
     
-    <script src="{{ url_for('static', path='js/script.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            loadUserData();
-            initWhatsApp();
-            
-            {% if user.role != 'dosen' %}
-            // Initialize chart for mahasiswa
+<script src="{{ url_for('static', path='js/script.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Simpan user role ke variabel JavaScript (FIXED!)
+    const userRole = '{{ user.role }}';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUserData();
+        initWhatsApp();
+        
+        // Initialize chart hanya untuk mahasiswa (bukan dosen)
+        if (userRole !== 'dosen') {
             if (document.getElementById('ipkChart')) {
                 initIPKChart();
             }
-            {% endif %}
-        });
-        
-        function showInputNilaiModal() {
-            document.getElementById('inputNilaiModal').style.display = 'block';
         }
+    });
+    
+    function showInputNilaiModal() {
+        document.getElementById('inputNilaiModal').style.display = 'block';
+    }
+    
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+    
+    function initIPKChart() {
+        const ctx = document.getElementById('ipkChart').getContext('2d');
         
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
+        // Sample data - in real app, fetch from API
+        const data = {
+            labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Sem 6'],
+            datasets: [{
+                label: 'IPK',
+                data: [3.2, 3.4, 3.5, 3.6, 3.7, 3.8],
+                borderColor: '#4f46e5',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'IPS',
+                data: [3.3, 3.5, 3.4, 3.7, 3.6, 3.8],
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        };
         
-        function initIPKChart() {
-            const ctx = document.getElementById('ipkChart').getContext('2d');
-            
-            // Sample data - in real app, fetch from API
-            const data = {
-                labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Sem 6'],
-                datasets: [{
-                    label: 'IPK',
-                    data: [3.2, 3.4, 3.5, 3.6, 3.7, 3.8],
-                    borderColor: '#4f46e5',
-                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }, {
-                    label: 'IPS',
-                    data: [3.3, 3.5, 3.4, 3.7, 3.6, 3.8],
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            };
-            
-            new Chart(ctx, {
-                type: 'line',
-                data: data,
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Perkembangan Nilai per Semester'
-                        }
+        new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            min: 2.5,
-                            max: 4.0
-                        }
+                    title: {
+                        display: true,
+                        text: 'Perkembangan Nilai per Semester'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 2.5,
+                        max: 4.0
                     }
                 }
-            });
-        }
-        
-        async function updateNilai(nim, type, value) {
-            // In real app, send to API
-            console.log(`Update nilai ${type} for ${nim}: ${value}`);
-        }
-        
-        async function updateAbsensi(nim, pertemuan, status) {
-            // In real app, send to API
-            console.log(`Update absensi ${pertemuan} for ${nim}: ${status}`);
-        }
-        
-        document.getElementById('inputNilaiForm').onsubmit = async function(e) {
-            e.preventDefault();
-            
-            const nim = document.getElementById('mahasiswaSelect').value;
-            const kodeMatkul = document.getElementById('matkulInput').value;
-            const nilaiTugas = document.getElementById('nilaiTugas').value;
-            const nilaiUTS = document.getElementById('nilaiUTS').value;
-            const nilaiUAS = document.getElementById('nilaiUAS').value;
-            
-            try {
-                const token = localStorage.getItem('token');
-                const formData = new FormData();
-                formData.append('kode_matkul', kodeMatkul);
-                formData.append('nilai_tugas', nilaiTugas);
-                formData.append('nilai_uts', nilaiUTS);
-                formData.append('nilai_uas', nilaiUAS);
-                
-                const response = await fetch(`/api/mahasiswa/${nim}/nilai`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    alert('✅ Nilai berhasil disimpan!');
-                    closeModal('inputNilaiModal');
-                    this.reset();
-                } else {
-                    alert('❌ ' + (result.detail || 'Gagal menyimpan nilai'));
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
             }
-        };
+        });
+    }
+    
+    async function updateNilai(nim, type, value) {
+        // In real app, send to API
+        console.log(`Update nilai ${type} for ${nim}: ${value}`);
+    }
+    
+    async function updateAbsensi(nim, pertemuan, status) {
+        // In real app, send to API
+        console.log(`Update absensi ${pertemuan} for ${nim}: ${status}`);
+    }
+    
+    // Attach change listeners to .status-select elements
+    document.querySelectorAll('.status-select').forEach(sel => {
+        sel.addEventListener('change', function(e) {
+            const nim = this.dataset.nim;
+            const i = parseInt(this.dataset.i, 10) || 0;
+            updateAbsensi(nim, i, this.value);
+        });
+    });
+    
+    document.getElementById('inputNilaiForm').onsubmit = async function(e) {
+        e.preventDefault();
         
-        // Close modal jika klik di luar
-        window.onclick = function(event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target == modal) {
-                    modal.style.display = "none";
-                }
+        const nim = document.getElementById('mahasiswaSelect').value;
+        const kodeMatkul = document.getElementById('matkulInput').value;
+        const nilaiTugas = document.getElementById('nilaiTugas').value;
+        const nilaiUTS = document.getElementById('nilaiUTS').value;
+        const nilaiUAS = document.getElementById('nilaiUAS').value;
+        
+        try {
+            const token = localStorage.getItem('token');
+            const formData = new FormData();
+            formData.append('kode_matkul', kodeMatkul);
+            formData.append('nilai_tugas', nilaiTugas);
+            formData.append('nilai_uts', nilaiUTS);
+            formData.append('nilai_uas', nilaiUAS);
+            
+            const response = await fetch(`/api/mahasiswa/${nim}/nilai`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
             });
-        };
-    </script>
-</body>
-</html>
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('✅ Nilai berhasil disimpan!');
+                closeModal('inputNilaiModal');
+                this.reset();
+            } else {
+                alert('❌ ' + (result.detail || 'Gagal menyimpan nilai'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    };
+    
+    // Close modal jika klik di luar
+    window.onclick = function(event) {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        });
+    };
+</script>
