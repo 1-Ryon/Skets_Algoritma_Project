@@ -1,0 +1,12 @@
+[
+    {
+        "username": "admin",
+        "role": "admin",
+        "nama": "Administrator",
+        "email": "admin@univ.ac.id",
+        "foto_profil": "",
+        "is_active": true,
+        "created_at": "2025-12-15T07:30:46.644794",
+        "profile_complete": false
+    }
+]

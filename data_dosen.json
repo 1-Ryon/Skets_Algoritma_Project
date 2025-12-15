@@ -1,0 +1,23 @@
+[
+    {
+        "username": "12345678",
+        "role": "dosen",
+        "nama": "Dr. Ahmad Wijaya, M.Kom",
+        "email": "",
+        "foto_profil": "",
+        "is_active": true,
+        "created_at": "2025-12-15T07:30:46.645351",
+        "profile_complete": false,
+        "nidn": "12345678",
+        "bidang": "Data Science",
+        "mata_kuliah": [
+            {
+                "kode": "TI101",
+                "nama": "Pemrograman Dasar",
+                "sks": 3,
+                "semester": "ganjil",
+                "mahasiswa_terdaftar": []
+            }
+        ]
+    }
+]

@@ -1,0 +1,55 @@
+[
+    {
+        "username": "2023123001",
+        "role": "mahasiswa",
+        "nama": "Budi Santoso",
+        "email": "",
+        "foto_profil": "",
+        "is_active": true,
+        "created_at": "2025-12-15T07:30:46.645334",
+        "profile_complete": false,
+        "nim": "2023123001",
+        "jurusan": "Teknik Informatika",
+        "angkatan": 2023,
+        "ipk": 4.0,
+        "total_sks": 3,
+        "nilai": [
+            {
+                "kode_matkul": "TI101",
+                "nama_matkul": "Pemrograman Dasar",
+                "sks": 3,
+                "nilai_akhir": 85.5,
+                "semester": "ganjil",
+                "tahun": 2023,
+                "timestamp": "2025-12-15T07:30:46.645358"
+            }
+        ],
+        "absensi": [
+            {
+                "kode_matkul": "TI101",
+                "tanggal": "2023-09-01",
+                "status": "hadir",
+                "timestamp": "2025-12-15T07:30:46.645372"
+            }
+        ],
+        "presensi_rate": 100.0
+    },
+    {
+        "username": "2023123002",
+        "role": "mahasiswa",
+        "nama": "Siti Aminah",
+        "email": "",
+        "foto_profil": "",
+        "is_active": true,
+        "created_at": "2025-12-15T07:30:46.645346",
+        "profile_complete": false,
+        "nim": "2023123002",
+        "jurusan": "Sistem Informasi",
+        "angkatan": 2023,
+        "ipk": 0.0,
+        "total_sks": 0,
+        "nilai": [],
+        "absensi": [],
+        "presensi_rate": 0.0
+    }
+]
